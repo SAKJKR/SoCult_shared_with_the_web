@@ -143,7 +143,7 @@ for (i in 1:nrow(guests)){
 ```
 
 
-```{r}
+```{r plotting networks}
 #Plotting Friendship network
 pacman::p_load(tidyverse,
                here,
@@ -169,380 +169,45 @@ plot(pre_network_graph,
 
 
 
+```{r creating tables}
+#Create 8 tables of 8 people
 
+# Assuming your dataframe is called 'guests' and has a column named 'ID'
 
+# Define the number of tables
+num_tables <- 8
 
-```{r friends network}
-guests$friends <- map(guests$missing_friends, function(x) sample(guests$ID, x, replace = FALSE), )
+# Create a list to store the table dataframes
+tables <- vector("list", num_tables)
 
-pre_network %>% filter(from==105)
+# Create the table dataframes
+for (i in 1:num_tables) {
+  table_name <- paste("Table", i, sep = "_")
+  tables[[i]] <- data.frame(ID = NULL, Table = NULL, stringsAsFactors = FALSE)
+}
 
-#step 2: connect everybody with everybody using their number of friends
-#make lists of possible connections
-for (id in seq(guests$ID)){
-  
-  
-  #friends time
-  n_rows_friends = guests$n_closefriends[[id]]
-  row = guests$ID[[id]]
-  if (n_rows_friends == 0){next}
-  df_temp_fri <-  tibble(expand.grid(ID=row,
-                     p_friends = seq(n_rows_friends)
-                     ))
-  #save dataframe
-  if (id == 1){
-    df_fri <- df_temp_fri
-  } else {
-    df_fri <- rbind(df_fri,df_temp_fri)
+#Create a list of people that are not seated yet
+no_seat <- guests$ID
+no_seat <- no_seat[sample(length(no_seat))]
+
+# Assign guests to tables
+table_index <- 1  # Start with the first table
+for (i in no_seat) {
+  table_name <- paste("Table", table_index, sep = "_")
+  temp <- data.frame(ID=i, Table=table_name)
+  tables[[table_index]] <- rbind(tables[[table_index]], temp)
+  table_index <- table_index + 1
+  if (table_index > num_tables) {
+    table_index <- 1  # Start from the first table again
   }
 }
 
-list_of_friends <- df_fri[,1] %>% 
-  mutate(row=row.names(df_fri))
-
-
-
-pre_network <-  tibble(from =NULL, to=NULL, weight=NULL)
-
-list_of_friends_guest <- list_of_friends[66:553,]
-#this loop makes the right number of connections, but NA occures for to coloumn after first run..., every second person is "satisfied" with friends in party dataframe...
-for (person in list_of_friends_guest[["ID"]]){ #need for be done as many times as there are people on the list
-  if (party$missing_friends[person] > 0){
-    choosen = list_of_friends_guest[sample(1:nrow(list_of_friends_guest), 1), ]
-    choosen_friend = choosen[["ID"]]
-    connection = tibble(from   = guests[person,1],
-                         to = guests[choosen_friend,1],
-                         weight = 16)
-    pre_network <- rbind(pre_network, connection)
-    
-    #remove from list
-    #choosen
-    row =as.numeric(choosen[["n"]])
-    list_of_friends_guest <- list_of_friends_guest[-row,]
-    #person
-    temp_rows=as.numeric(list_of_friends_guest$row[list_of_friends_guest$ID==person])
-    row = sample(temp_rows, 1)
-    list_of_friends_guest <- list_of_friends_guest[-row,]
-    
-    party$missing_friends[party$ID == person] <- party$missing_friends[party$ID == person] -1
-    # party$missing_friends[party$ID == choosen_friend] <- party$missing_friends[party$ID == choosen_friend] -1
-
-    
-  }else if (party$missing_friends[person] == 0){next}
+# Print the table dataframes
+for (i in 1:num_tables) {
+  table_name <- paste("Table", i, sep = "_")
+  print(tables[[i]])
 }
 
 
-#this loop makes the right number of connections, but NA occures for to coloumn after first run..., every second person is "satisfied" with friends in party dataframe...
-for (person in list_of_friends_guest[["ID"]]){ #need for be done as many times as there are people on the list
-  if (party$missing_friends[person] > 0){
-    choosen = list_of_friends_guest[sample(1:nrow(list_of_friends_guest), 1), ]
-    repeat{
-      
-      
-    }
-    choosen_friend = choosen[["ID"]]
-    connection = tibble(from   = guests[person,1],
-                         to = guests[choosen_friend,1],
-                         weight = 16)
-    pre_network <- rbind(pre_network, connection)
-    
-    #remove from list
-    row =as.numeric(choosen[["n"]])
-    list_of_friends_guest <- list_of_friends_guest[-row,]
-    
-    party$missing_friends[party$ID == person] <- party$missing_friends[party$ID == person] -1
-
-    
-  }else if (party$missing_friends[person] == 0){next}
-}
-
-#this loop works but for all rows in the possible list of friends...
-for (person in list_of_friends_guest[["ID"]]){ #need for be done as many times as there are people on the list
-  if (party$missing_friends[person] > 0){
-    choosen = list_of_friends_guest[sample(1:nrow(list_of_friends_guest), 1), ]
-    choosen_friend = choosen[["ID"]]
-    connection = tibble(from   = guests[person,1],
-                         to = guests[choosen_friend,1],
-                         weight = 16)
-    pre_network <- rbind(pre_network, connection)
-    
-    #remove from list
-    #row =as.numeric(choosen[["n"]])
-    #list_of_friends_guest <- list_of_friends_guest[-row,]
-    
-    #party$missing_friends[party$ID == person] <- -1  
-    
-  }else if (party$missing_friends[person] > 0){next}
-}
-
-
-#this loop works but once for each person in unique(list_of_friends_guest)
-for (person in unique(list_of_friends_guest[["ID"]])){ #need for be done as many times as there are people on the list
-  if (party$missing_friends[person] > 0){
-    choosen = list_of_friends_guest[sample(1:nrow(list_of_friends_guest), 1), ]
-    choosen_friend = choosen[["ID"]]
-    connection = tibble(from   = guests[person,1],
-                         to = guests[choosen_friend,1],
-                         weight = 16)
-    pre_network <- rbind(pre_network, connection)
-    
-    #remove from list
-    #row =as.numeric(choosen[["n"]])
-    #list_of_friends_guest <- list_of_friends_guest[-row,]
-    
-    #party$missing_friends[party$ID == person] <- -1  
-    
-  }else if (party$missing_friends[person] > 0){next}
-}
-
-#loop that worked yesterday but only made one connection per guest
-for (person in unique(list_of_friends[["ID"]])){ #need for be done as many times as there are people on the list
-  if (guests$missing_friends[person] > 0){
-    if (nrow(list_friends) > 0){}
-    choosen = list_of_friends[sample(1:nrow(list_of_friends), 1), ]
-    choosen_friend = choosen[["ID"]]
-    connection <- tibble(to = guests[choosen_friend,1],
-                         from   = guests[person,1],
-                         weight = 16)
-    pre_network <- rbind(pre_network, connection)
-    
-    #remove from list
-    row =as.numeric(choosen[["n"]])
-    list_of_friends <- list_of_friends[-row,]
-    
-    guests$missing_friends[guests$ID == person] <- -1  
-    
-  }
-}
-
-#test if it worked
-n_connections_needed <-   guests$n_closefriends
-pre_network <- pre_network %>% 
-  mutate(to=as.numeric(to))
-n_connections_have <- xtabs(~pre_network$to)
-n_connections <- tibble(nedded =n_connections_needed,
-                        have =n_connections_have)
-duplicated(n_connections) #all false....
 ```
 
-```{r network}
-
-#empty networks
-friends <- tibble(to=NA,from=NA,weight=NA)
-
-families <- tibble(to=NA,from=NA,weight=NA)
-
-
-#make lists of possible connections
-for (id in seq(party$ID)){
-  
-  #family
-  if (party$n_household[[id]] == 1){ #people who have no family
-    break
-  } else {
-  n_rows_family = party$n_household[[id]]
-  df_temp_fam <-  tibble(expand.grid(ID=unique(id),
-                     p_familiy = seq(n_rows_family)
-                     ))
-  }
-  #save dataframe
-  if (id == 1){
-    df_fam <- df_temp_fam
-  } else {
-    df_fam <- rbind(df_fam,df_temp_fam)
-  }
-  
-  #friends time
-  n_rows_friends = party$n_closefriends[[id]] 
-  df_temp_fri <-  tibble(expand.grid(ID=unique(id),
-                     p_friends = seq(n_rows_friends)
-                     ))
-  #save dataframe
-  if (id == 1){
-    df_fri <- df_temp_fri
-  } else {
-    df_fri <- rbind(df_fri,df_temp_fri)
-  }
-}
-
-list_of_friends <- df_fri[,1]
-list_of_family <- df_fam[,1]
-
-#reorder
-  fam_dec <- party[order(-party$n_household),]
-  #remove people who live alone
-  fam_dec <- fam_dec[!(fam_dec$n_household == 1),]
-  
-#make families
-for (people in nrow(fam_dec)){
-  #setup count handler
-  n_people <- 1
-  max = fam_dec$n_household[[n_people]] 
-  n_relatives <- 2
-  person <- n_people+1
-
-  repeat{
-  while (n_relatives <= max){
-    n_relatives <- 1+n_relatives
-    #row             #to                #from             #weight
-                   #the person at hand
-    connection <- tibble(to=fam_dec[n_people,1], from=fam_dec[person,1],weight= 33 )
-    
-    #add to dataframe
-    families <- rbind(families, connection)
-    
-    #add to counters
-    n_relatives= +1
-    person = +1
-    if (n_relatives> max){next}
-  } 
-  n_people = +1 #move to next person
-  max = fam_dec$n_household[[n_people]] #set new max
-  #see if it already has been filled
-  test <- xtabs(~from,families)
-  n_relatives <- test[[n_people]][1]
-  if (n_people > nrow(fam_dec)){break}
-} 
-}
-
-  
-  
-  
-  
-
-  
-#chatgpt
-library(igraph)
-
-# create an empty graph
-edges <- NULL
-g <- graph(edges = edges)
-
-# add vertices to the graph
-vertex_names <- unique(party$ID)
-V(g)$name <- vertex_names
-
-# add edges to the graph based on n_friends and n_family
-for (i in 1:nrow(party)) {
-  # get the source and target nodes
-  source_node <- party[i, "ID"]
-  target_node <- sample(vertex_names, party[i, "n_closefriends"] + party[i, "n_household"], replace = FALSE)
-  
-  # check if the target node is not the source node and if there is no existing edge
-  for (j in target_node) {
-    if (j != source_node && !edge.between(g, source_node, j)) {
-      # determine the weight based on whether it's a friend or family
-      if (j %in% sample(party[party$ID == source_node, "n_closefriends"], party[i, "n_closefriends"], replace = FALSE)) {
-        weight <- 16
-      } else {
-        weight <- 33
-      }
-      # add the edge to the graph
-      g <- add_edge(g, source_node, j, weight = weight)
-    }
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-#make friends clusters from interest... nooo
-# normalize the n_family and n_friends values
-df_norm <- as.data.frame(scale(party[, c("n_family", "n_friends")]))
-
-# perform k-means clustering
-set.seed(123) # for reproducibility
-k <-  # number of clusters
-kmeans_model <- kmeans(df_norm, centers = k)
-
-# add cluster information to original dataframe
-df$cluster <- as.factor(kmeans_model$cluster)
-
-
-
-
-pre_party_network <-  tibble(expand.grid(ID=seq(unique(party$ID)),
-                                         p_closefriends = seq(party$n_closefriends),
-                                         p_familiy = seq(party$n_household)
-                                         )
-                              ) #%>% 
-         # mutate(ID=ifelse(diagnosis=='td',ID+n*2,ID))
-# group by ID and calculate the number of rows for each ID
-aggregate(ID ~ n_closefriends, data = party, FUN = length)
-aggregate(ID ~ n_household, data = party, FUN = length)
-
-for (id in seq(party$ID)){
-  
-  n_rows_family = party$n_household[[id]]
-  n_rows_friends= party$n_closefriends[[id]] 
-  
-  df_temp_fam <-  tibble(expand.grid(ID=unique(id),
-                     p_familiy = seq(n_rows_family)
-                     ))
-  df_temp_fri <-  tibble(expand.grid(ID=unique(id),
-                     p_friends = seq(n_rows_friends)
-                     ))
-  #save dataframe
-  if (id == 1){
-    df_fam <- df_temp_fam
-    df_fri <- df_temp_fri
-  } else {
-    df_fam <- rbind(df_fam,df_temp_fam)
-    df_fri <- rbind(df_fri,df_temp_fri)
-  }
-}#as long as it is just a foor loop no return needed
-#dataframe structure: to from weight. weight: one weight added everytime they meet a total of 16 weights can be added, family nodes are made to start at 33 (at the end of party ranching from 33-49), friends nodes start at 16 (at the end of party ranching from 16-32)... arbitrary choice at the moment,
-
-```
-```{r people}
-#to point out the hosts, so we can have interesser/relationer der overlapper med værten
-iterations <- 8
-
-n_hosts <- iterations+100 #have the number of hosts needed for running all interations *100 to make them identifiable as hosts
-  
-  hosts <- tibble(
-    ID = 101:n_hosts, #*100 to give the hosts identifyable ID's
-    #introvert / extrovert scale from 1-9, from Emma and Mie
-     ie = sample(1:9, iterations, replace = TRUE, prob =  c(0.05, 0.15, 0.15, 0.1, 0.1, 0.15, 0.15, 0.1, 0.05)),
-    # 
-    # #the number does not really matter unless you want to make the network complecated...
-     n_household = sample(1:8,iterations, replace =TRUE, prob = hus_prob), 
-     n_closefriends = sample(0:10, iterations, replace = TRUE, prob = ven_prob), 
-    # 
-    #  #in the tryout markdown the randomization of interest was tested an only a few combination was shown twice, therefore we will not do anything further to randomize the selected interests.
-     interest1 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
-     interest2 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
-     interest3 = sample(1:14, iterations, replace = TRUE, prob = int_prob)
-  )
-
- host <- hosts[6,] #choose a host
-
-  #decide host interest
-   host_interest <- c(host$interest1,host$interest2,host$interest3)
-
-   #make people
-   people <- tibble(
-     #individual
-     ID = 1:n_people, 
-     ie = sample(1:9, n_people, replace = TRUE, prob =  c(0.05, 0.15, 0.15, 0.1, 0.1, 0.15, 0.15, 0.1, 0.05)),
-     n_household = sample(1:8, n_people, replace =TRUE, prob = hus_prob),
-     n_closefriends = sample(0:10, n_people, replace = TRUE, prob = ven_prob),
-     
-     #interests based on the selected host
-     interest1 = sample(host_interest,n_people,replace=TRUE), #choose a random interest that fits with the host
-     interest2 = sample(1:14, n_people, replace = TRUE, prob = int_prob),
-     interest3 = sample(1:14, n_people, replace = TRUE, prob = int_prob)
-     )
-
-
-party <- rbind(host,people) 
-```
