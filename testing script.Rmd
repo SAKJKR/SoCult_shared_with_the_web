@@ -92,22 +92,22 @@ stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap 
 ```
 
 
--- arbejder her--
-
 ```{r friends network}
+
+### Creating a network of the connections pre-party###
 pre_network <- expand.grid(from=guests$ID,to=guests$ID)
 pre_network$weight <- 0
 pre_network <- filter(pre_network, from != to)
 
-# Iterate over each row in the dataframe
+### Assigning friends to everyone
 for (i in 1:nrow(guests)) {
   num_friends <- guests$n_closefriends[i]  # Get the number of friends for the current person
   id_pool <- guests$ID[-i]  # Exclude the current person's ID from the pool of potential friends
   
-  ids_above_100 <- id_pool[id_pool > 100]
+  ids_above_100 <- id_pool[id_pool > 100] #Separate people into host and guests
   ids_below_100 <- id_pool[id_pool <= 100]
   
-  # If the current person needs to have friends below 100
+  # If the current person needs to have more than 1 friend (more than just the host)
   if (num_friends >= 1) {
     # Add all IDs above 100 as friends
     friend_ids_above_100 <- ids_above_100
@@ -124,36 +124,52 @@ for (i in 1:nrow(guests)) {
   }
 
   # Assign the selected friend IDs to the corresponding row in the dataframe
-  guests$friend_id[i] <- list(as.character(friend_ids))
+  guests$friend_id[i] <- paste(friend_ids, collapse = ', ')
 }
 
-#Add connection to weight
+#Add weight to all the friendships we just created
 for (i in 1:nrow(guests)){
   current_id <- guests$ID[i]
   temp <- pre_network %>% filter(from==current_id)
-  temp2 <- temp[temp$to==guests$friend_ids[i]]
-   for (k in guests$friend_id[i]){
+   for (k in strsplit(guests$friend_id[i], ", ")[[1]]){
      temp2 <- temp %>% filter(to==k)
-       temp2$weight <- 16
+      temp2$weight <- temp2$weight + 16
        temp <- temp %>% filter(to!=k)
       temp <- rbind(temp2, temp)
-     print(temp2)
   }
     pre_network <- pre_network %>% filter(from!=current_id)
     pre_network <- rbind(pre_network, temp)
 }
-
-friends
-
-temp <- list()
-for (i in guests$ID){
- n_friends <- filter(guests, ID==i) %>% select(missing_friends) %>% as.numeric()
- possible_friends <- guests$ID[guests$ID !=i & guests$ID <100]
- friends <- sample(possible_friends, n_friends, replace = F)
- friends <- dataframe
- temp <- rbind(temp, friends)
-}
 ```
+
+
+```{r}
+#Plotting Friendship network
+pacman::p_load(tidyverse,
+               here,
+               network,
+               igraph,
+               ggraph,
+               tidygraph,
+               patchwork,
+               bootnet)
+
+pre_network_graph <-
+  graph_from_data_frame(d = pre_network,
+                        vertices = guests$ID,
+                        directed = TRUE)
+
+plot(pre_network_graph,
+     layout = layout_on_sphere, # Explore layouts!
+     edge.arrow.size = 0.2) 
+```
+
+--- Nået hertil ---
+
+
+
+
+
 
 
 ```{r friends network}
