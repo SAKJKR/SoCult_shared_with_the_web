@@ -7,12 +7,17 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-pacman::p_load(tidyverse)
+#devtools::install_github("ricardo-bion/ggradar")
+pacman::p_load(tidyverse
+#, ggplot2, gridExtra, fmsb,ggradar
+)
 
 ```
 
 ```{r}
 ###Define variables from literature###
+setwd('.')
+load("prob.RData")
 
 ie_prob <- c(0.05, 0.15, 0.15, 0.10, 0.10, 0.15, 0.15, 0.10, 0.05) #Introvert/extrovert prob on scale from 1 - 10. From Emma and Mie
 int_prob <- c(0.955, 0.955, 0.435, 0.645, 0.625, 0.545, 0.390, 0.325, 0.845, 0.750, 0.320, 0.355, 0.250, 0.215) #Interest probabilities. 14 different interests taken from Statistikbanken.
@@ -36,29 +41,55 @@ max_hosts <- iterations+100 #define the highest host id (+100 to make hosts iden
   
 hosts <- tibble(
     ID = 101:max_hosts, #+100 to give the hosts identifyable ID's
-     ie = sample(1:9, iterations, replace = TRUE, prob =  ie_prob),    #introvert / extrovert scale from 1-9, from Emma and Mie
-     n_household = sample(1:8,iterations, replace =TRUE, prob = household_prob), #Number of people in your household
-     n_closefriends = n_people-1, #friends with every one at the party
+    ie = sample(1:9, iterations, replace = TRUE, prob =  ie_prob),    #introvert / extrovert scale from 1-9, from Emma and Mie
+    n_household = sample(1:8,iterations, replace =TRUE, prob = household_prob), #Number of people in your household
+    n_closefriends = n_people-1, #friends with every one at the party
     #in the tryout markdown the randomization of interest was tested an only a few combination was shown twice, therefore we will not do anything further to randomize the selected interests.
-     interest1 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
-     interest2 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
-     interest3 = sample(1:14, iterations, replace = TRUE, prob = int_prob)
+    interest1 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
+    interest2 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
+    interest3 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
+    weight_time = round((runif(iterations, min = -1, max = 1)),digits = 2),#testing to make weights for the satisfaction rate
+    weight_interest = 1-abs(weight_time)#testing to make weight for the satisfaction rate
   )
+``` 
+  
+```{r test hosts}
+#check it out
+# head(hosts)
+#seems good
+
+#could be fun to make a radar chart of the hosts
+#https://www.datanovia.com/en/blog/beautiful-radar-chart-in-r-using-fmsb-and-ggplot-packages/
+#opar <- par() 
+# Define settings for plotting in a 3x4 grid, with appropriate margins:
+#par(mar = rep(0.8,3))
+#par(mfrow = c(3,3))
+# Produce a radar-chart for each student
+#for (i in 1:nrow(hosts)) {
+ # radarchart(
+  #  hosts[c(2:7, i), ],#hosts[ i,c(2:7)]
+   # pfcol = c("#99999980",NA),
+    #pcol= c(NA,2), plty = 1, plwd = 2,
+#    title = row.names(hosts)[i]
+ # )
+#}
+# Restore the standard par() settings
+#par <- par(opar) 
 ```
 
 ```{r test interest overlap}
-par(mfrow=c(1,3))
-plot(density(hosts$interest1))
-plot(density(hosts$interest2))
-plot(density(hosts$interest3))
-#library(plyr)
-dplyr::count_(hosts, vars = c('interest1','interest2','interest3'))
-aggregate(ID ~ ., hosts, FUN = length)
-
-dupes <- apply(hosts[,2:4], 1, function(x) any(duplicated(x)))
-dupes <- hosts[dupes, ]
-dup <- dupes[1,]
-stringr::str_count(dupes) #18 true #four characters, =28 procent had an overlap in at least two coloumns
+# par(mfrow=c(1,3))
+# plot(density(hosts$interest1))
+# plot(density(hosts$interest2))
+# plot(density(hosts$interest3))
+# #library(plyr)
+# dplyr::count_(hosts, vars = c('interest1','interest2','interest3'))
+# aggregate(ID ~ ., hosts, FUN = length)
+# 
+# dupes <- apply(hosts[,2:4], 1, function(x) any(duplicated(x)))
+# dupes <- hosts[dupes, ]
+# dup <- dupes[1,]
+# stringr::str_count(dupes) #18 true #four characters, =28 procent had an overlap in at least two coloumns
 ```
 
 ```{r setup people for party}
@@ -74,35 +105,50 @@ host <- hosts[i,]
 host_interest <- c(host$interest1,host$interest2,host$interest3)
 
 #Assigning variables to guests 
-guests <- data.frame(ID = 2:n_people-1, #Creating 63 people
-                   ie = sample(1:9, n_people-1, replace = TRUE, prob =  ie_prob), #Introvert/extrovert values to people
-                   n_household = sample(1:8, n_people-1, replace =TRUE, prob = household_prob), #Amount of people in household
-                   n_closefriends = sample(1:10, n_people-1, replace = TRUE, prob = ven_prob[1:10]), #Amount of close friends (everyone has at least one friend (the host))
-                   interest1 = sample(host_interest,n_people-1,replace=TRUE), #choose a random interest that fits with the host
+guests <- tibble(ID = 2:n_people-1, #Creating 63 people
+                  ie = sample(1:9, n_people-1, replace = TRUE, prob =  ie_prob), #Introvert/extrovert values to people
+
+                  n_household = sample(1:8, n_people-1, replace =TRUE, prob = household_prob), #Amount of people in household
+                  n_closefriends = sample(1:10, n_people-1, replace = TRUE, prob = ven_prob[1:10]), #Amount of close friends (everyone has at least one friend (the host))
+                 
+                  interest1 = sample(host_interest,n_people-1,replace=TRUE), #choose a random interest that fits with the host
                   interest2 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob),
-                  interest3 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob)
-  )
+                  interest3 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob),
+                 
+                  weight_time = round((runif(n_people-1, min = -1, max = 1)),digits = 2),#testing to make weights for the satisfaction rate
+                  weight_interest = 1-abs(weight_time)#testing to make weight for the satisfaction rate
+)
+```
+  
+```{r make party}
+party <- rbind(host,guests)
+```
 
-guests <- as_tibble(rbind(host,guests))
 
-#test if people have overlap in interests within themselves
-dupes <- apply(guests[,5:7], 1, function(x) any(duplicated(x)))
-stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap in at least two coloumns
+```{r test interest overlap}
+# #test if people have overlap in interests within themselves
+# dupes <- apply(guests[,5:7], 1, function(x) any(duplicated(x)))
+# stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap in at least two coloumns
 
 ```
 
 
--- arbejder her--
-
 ```{r friends network}
-pre_network <- expand.grid(from=guests$ID,to=guests$ID)
+party <- party %>% #add connection count to guests, the hosts is already full...
+  mutate(max_friends = n_closefriends+1,
+         current_n_connections = 0,
+         missing_friends = max_friends-current_n_connections,
+         friend_ids = NA)
+
+#a full network of all people with zero connection weights
+pre_network <- expand.grid(from=party$ID,to=party$ID)
 pre_network$weight <- 0
 pre_network <- filter(pre_network, from != to)
 
 # Iterate over each row in the dataframe
-for (i in 1:nrow(guests)) {
-  num_friends <- guests$n_closefriends[i]  # Get the number of friends for the current person
-  id_pool <- guests$ID[-i]  # Exclude the current person's ID from the pool of potential friends
+for (i in 1:nrow(party)) {
+  num_friends <- party$n_closefriends[i]  # Get the number of friends for the current person
+  id_pool <- party$ID[-i]  # Exclude the current person's ID from the pool of potential friends
   
   ids_above_100 <- id_pool[id_pool > 100]
   ids_below_100 <- id_pool[id_pool <= 100]
@@ -124,37 +170,155 @@ for (i in 1:nrow(guests)) {
   }
 
   # Assign the selected friend IDs to the corresponding row in the dataframe
-  guests$friend_id[i] <- list(as.character(friend_ids))
-}
-
-#Add connection to weight
-for (i in 1:nrow(guests)){
-  current_id <- guests$ID[i]
-  temp <- pre_network %>% filter(from==current_id)
-  temp2 <- temp[temp$to==guests$friend_ids[i]]
-   for (k in guests$friend_id[i]){
-     temp2 <- temp %>% filter(to==k)
-       temp2$weight <- 16
-       temp <- temp %>% filter(to!=k)
-      temp <- rbind(temp2, temp)
-     print(temp2)
-  }
-    pre_network <- pre_network %>% filter(from!=current_id)
-    pre_network <- rbind(pre_network, temp)
-}
-
-friends
-
-temp <- list()
-for (i in guests$ID){
- n_friends <- filter(guests, ID==i) %>% select(missing_friends) %>% as.numeric()
- possible_friends <- guests$ID[guests$ID !=i & guests$ID <100]
- friends <- sample(possible_friends, n_friends, replace = F)
- friends <- dataframe
- temp <- rbind(temp, friends)
+  party$friend_id[i] <- list(as.character(friend_ids))
 }
 ```
 
+
+```{r trying network with matrix in stead}
+matrix <- base::matrix(0, nrow = n_people, ncol = n_people)	
+matrix <- as.data.frame(matrix)
+rownames(matrix) <- as.character(party$ID)
+colnames(matrix) <- as.character(party$ID)
+# make a for loop that loops through nrow(party) and assigns a weight of 16 to the friend in the matrix
+for (i in 1:nrow(party)) {
+  x <-  as.numeric(rownames(matrix)[i])
+  
+  friend_ids <- party$friend_id[i]  # split the string into individual IDs
+  
+  for (k in 1:length(friend_ids[[1]])) {
+    y <- as.numeric(friend_ids[[1]][k])
+     # Check if indices i and j are within the valid range
+    if (i <= nrow(matrix) &&  y<= ncol(matrix)) {
+      matrix[paste(x), paste(y)] <- 16
+    }
+  }
+}
+matrix
+
+```
+
+```{r trying network with matrix in stead}	
+#collapse matrix into a dataframe with from, to and weight
+pre_network <- data.frame(from = numeric(),
+                     to = numeric(),
+                     weight = numeric()
+                     )
+
+# Iterate over each row and column in the matrix
+for (row in seq_len(nrow(matrix))) {
+  for (col in 1:ncol(matrix)) {
+    # Extract the weight value from the matrix
+    if (matrix[row, col]!= 0 &&  row != col) {
+    weight <- matrix[row, col]
+    
+    # Create a new entry in the data list
+    entry <- data.frame(from = as.numeric(rownames(matrix)[row]), to = as.numeric(colnames(matrix)[col]), weight = weight)
+    
+    # Append the entry to the data list
+    pre_network <- rbind(pre_network, entry)
+    }
+  }
+}
+pre_network
+```
+hehe finally 4 days later...
+
+
+```{r plot prenetwork}
+pacman::p_load(tidyverse,
+               here,
+               network,
+               igraph,
+               ggraph,
+               tidygraph,
+               patchwork)
+nodes <- party$ID
+
+pre_igraph <-
+  graph_from_data_frame(d = pre_network,
+                        vertices = nodes,
+                        directed = TRUE)
+
+
+pre_igraph <- simplify(pre_igraph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+E(pre_igraph)$arrow.mode <- 0
+
+
+
+V(pre_igraph)$label <- "" 
+
+V(pre_igraph)$frame.color <- "white"
+V(pre_igraph)$color <- "orange"
+E(pre_igraph)$width <- edge_attr(pre_igraph)$weight/16 #this one adjusts the size of arrows 
+#E(pre_igraph)$arrow.size <- 0.01
+plot(pre_igraph,
+     layout=layout_nicely,
+     #vertex.label= V(pr,
+     edge.arrow.size=0.01#,
+     #vertex.label.color = "black",
+     #vertex.size=node.size
+     )
+
+#ask Emma how to make their cool network plot
+```
+```{r tables}
+#make round + square tables
+n_tables <- 8
+n_seats <- 8
+
+#round
+round_table <- tibble(expand_grid(TableNo = seq(n_tables), SeatNo = seq(n_seats),ContactSeatNo=seq(2)))
+round_table <- round_table %>% mutate(ContactSeatNo=NA)#cleaning out the arbitrary numbers
+#square
+square_table <- tibble(expand_grid(TableNo = seq(n_tables), SeatNo = seq(n_seats),ContactSeatNo=seq(5)))
+square_table <- square_table %>% mutate(ContactSeatNo=NA)#cleaning out the arbitrary numbers
+#long
+long_table <- tibble(expand_grid(TableNo=1,SeatNo=seq(n_people),ContactSeatNo=seq(5)))
+long_table <- long_table[-c(4,5,9,10,314,315,319,320),] #remove edges partners as they do not exists.
+long_table <- long_table %>% mutate(ContactSeatNo=NA)#cleaning out the arbitrary numbers
+
+#input the seatno with the current seatno can make contact with in the contactseatno
+#round
+round_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), contact_seats = 1:2))
+
+#square
+square_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), contact_seats = 1:5))
+
+#long
+long_start <- tibble(expand.grid(table = 1, seat = 1:n_people, contact_seats = 1:5))
+
+#works but end seating have weird corner seats...
+long_try <- tibble(table=NA,seat=1:n_people,contact=NA,indices=NA)
+# Iterate over each row in the dataframe
+for (i in 1:nrow(long_try)) {
+   seat <- i
+     # Calculate the indices for the contact seats
+   if (seat %% 2){
+     indices <- c(seat - 3, seat - 2, seat - 1, seat + 1, seat + 2)
+   } else {
+     indices <- c(seat - 1, seat - 2, seat + 1, seat + 2, seat + 3)
+   }
+  # Remove any indices that are out of bounds
+  indices <- indices[indices > 0 & indices < n_people+1]
+  #add to index
+  n_indices <- length(indices)
+  index <- c()
+  for (n in 1:n_indices){
+    index <- c(index,indices[n])
+  }
+  long_try$indices[i] <- list(index)
+}
+```
+
+
+--- mess --- måske er der noget godt der nede...
 
 ```{r friends network}
 guests$friends <- map(guests$missing_friends, function(x) sample(guests$ID, x, replace = FALSE), )
@@ -487,6 +651,7 @@ for (id in seq(party$ID)){
 #dataframe structure: to from weight. weight: one weight added everytime they meet a total of 16 weights can be added, family nodes are made to start at 33 (at the end of party ranching from 33-49), friends nodes start at 16 (at the end of party ranching from 16-32)... arbitrary choice at the moment,
 
 ```
+
 ```{r people}
 #to point out the hosts, so we can have interesser/relationer der overlapper med værten
 iterations <- 8
