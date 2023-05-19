@@ -13,6 +13,8 @@ pacman::p_load(tidyverse)
 
 ```{r}
 ###Define variables from literature###
+setwd('.')
+load("prob.RData")
 
 ie_prob <- c(0.05, 0.15, 0.15, 0.10, 0.10, 0.15, 0.15, 0.10, 0.05) #Introvert/extrovert prob on scale from 1 - 10. From Emma and Mie
 int_prob <- c(0.955, 0.955, 0.435, 0.645, 0.625, 0.545, 0.390, 0.325, 0.845, 0.750, 0.320, 0.355, 0.250, 0.215) #Interest probabilities. 14 different interests taken from Statistikbanken.
@@ -74,17 +76,22 @@ host <- hosts[i,]
 host_interest <- c(host$interest1,host$interest2,host$interest3)
 
 #Assigning variables to guests 
-guests <- data.frame(ID = 2:n_people-1, #Creating 63 people
+  guests <- tibble(ID = 2:n_people-1, #Creating 63 people
                    ie = sample(1:9, n_people-1, replace = TRUE, prob =  ie_prob), #Introvert/extrovert values to people
                    n_household = sample(1:8, n_people-1, replace =TRUE, prob = household_prob), #Amount of people in household
                    n_closefriends = sample(1:10, n_people-1, replace = TRUE, prob = ven_prob[1:10]), #Amount of close friends (everyone has at least one friend (the host))
-                   interest1 = sample(host_interest,n_people-1,replace=TRUE), #choose a random interest that fits with the host
+                  interest1 = sample(host_interest,n_people-1,replace=TRUE), #choose a random interest that fits with the host
                   interest2 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob),
-                  interest3 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob)
+                  interest3 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob),
+                  weight_time = round((runif(n_people, min = -1, max = 1)),digits = 2),#testing to make weights for the satisfaction rate
+                  weight_interest = 1-abs(weight_time)#testing to make weight for the satisfaction rate
   )
 
 guests <- as_tibble(rbind(host,guests))
+```
 
+
+```{r test interest overlap}
 #test if people have overlap in interests within themselves
 dupes <- apply(guests[,5:7], 1, function(x) any(duplicated(x)))
 stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap in at least two coloumns
@@ -95,6 +102,13 @@ stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap 
 -- arbejder her--
 
 ```{r friends network}
+party <- party %>% #add connection count to guests, the hosts is already full...
+  mutate(max_friends = n_closefriends+1,
+         current_n_connections = 0,
+         missing_friends = max_friends-current_n_connections,
+         n_closefriends=n_closefriends+1)
+
+
 pre_network <- expand.grid(from=guests$ID,to=guests$ID)
 pre_network$weight <- 0
 pre_network <- filter(pre_network, from != to)
