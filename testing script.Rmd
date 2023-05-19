@@ -286,34 +286,38 @@ long_table <- long_table %>% mutate(ContactSeatNo=NA)#cleaning out the arbitrary
 
 #input the seatno with the current seatno can make contact with in the contactseatno
 #round
+round_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), contact_seats = 1:2))
 
 #square
+square_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), contact_seats = 1:5))
 
 #long
-long_try <-  data.frame(table = NA, seat = NA, contact_seats = NA)
-# Loop through each table and seat
-for (table in 1:n_tables) {
-  for (seat in 1:n_seats) {
-    # Calculate the indices for the contact seats
-    indices <- c(seat - 1, seat - 2, seat+1, seat + 2, seat + 3)
-    indices <- +1
-    
-    # Remove any indices that are out of bounds
-    indices <- indices[indices > 1 & indices <= n_seats]
-    
-    # Create a new row for each contact seat
-    for (contact_seat in indices) {
-      long_temp <- data.frame(table = table, seat = seat, contact_seats = contact_seat)
-      
-      # Append the row to the dataframe
-      long_try <- rbind(long_try, long_temp)
-    }
+long_start <- tibble(expand.grid(table = 1, seat = 1:n_people, contact_seats = 1:5))
+
+#works but end seating have weird corner seats...
+long_try <- tibble(table=NA,seat=1:n_people,contact=NA,indices=NA)
+# Iterate over each row in the dataframe
+for (i in 1:nrow(long_try)) {
+   seat <- i
+     # Calculate the indices for the contact seats
+   if (seat %% 2){
+     indices <- c(seat - 3, seat - 2, seat - 1, seat + 1, seat + 2)
+   } else {
+     indices <- c(seat - 1, seat - 2, seat + 1, seat + 2, seat + 3)
+   }
+  # Remove any indices that are out of bounds
+  indices <- indices[indices > 0 & indices < n_people+1]
+  #add to index
+  n_indices <- length(indices)
+  index <- c()
+  for (n in 1:n_indices){
+    index <- c(index,indices[n])
   }
+  long_try$indices[i] <- list(index)
 }
 ```
 
 
-```{r tables}
 --- mess --- måske er der noget godt der nede...
 
 ```{r friends network}
