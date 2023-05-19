@@ -174,53 +174,31 @@ for (i in 1:nrow(party)) {
 }
 ```
 
--- arbejder her--
-
-```{r friends network}
-#Add connection to weight
-#works fine but does not save the weight to the pre_network
-for (i in 1:nrow(party)){
-  current_id <- party$ID[i]
-  temp <- pre_network %>% filter(from==current_id)
-  temp2 <- temp[temp$to==party$friend_ids[i]]
-   for (k in party$friend_id[i]){
-     temp2 <- temp %>% filter(to==k)
-       temp2$weight <- 16
-       temp <- temp %>% filter(to!=k)
-      temp <- rbind(temp2, temp)
-     print(temp2)
-  }
-    pre_network <- pre_network %>% filter(from!=current_id)
-    pre_network <- rbind(pre_network, temp)
-}
-
-friends
-
-temp <- list()
-for (i in guests$ID){
- n_friends <- filter(guests, ID==i) %>% select(missing_friends) %>% as.numeric()
- possible_friends <- guests$ID[guests$ID !=i & guests$ID <100]
- friends <- sample(possible_friends, n_friends, replace = F)
- friends <- dataframe
- temp <- rbind(temp, friends)
-}
-```
 
 
 ```{r trying network with matrix in stead}
 matrix <- base::matrix(0, nrow = n_people, ncol = n_people)	
 matrix <- as.data.frame(matrix)
-#does not work for more than first row...
+rownames(matrix) <- as.character(party$ID)
+colnames(matrix) <- as.character(party$ID)
+# make a for loop that loops through nrow(party) and assigns a weight of 16 to the friend in the matrix
 for (i in 1:nrow(party)) {
-  for (k in 1:length(party$friend_id[[i]])) {
-    j <- as.numeric(party$friend_id[[i]][[k]])
-    matrix[i, j] <- 16
+  x <-  as.numeric(rownames(matrix)[i])
+  
+  friend_ids <- party$friend_id[i]  # split the string into individual IDs
+  
+  for (k in 1:length(friend_ids[[1]])) {
+    y <- as.numeric(friend_ids[[1]][k])
+     # Check if indices i and j are within the valid range
+    if (i <= nrow(matrix) &&  y<= ncol(matrix)) {
+      matrix[paste(x), paste(y)] <- 16
+    }
   }
 }
 matrix
 
-
 ```
+
 ```{r}
 matrix <- m1[,1:64]
 ```
@@ -243,7 +221,7 @@ for (row in seq_len(nrow(matrix))) {
     weight <- matrix[row, col]
     
     # Create a new entry in the data list
-    entry <- data.frame(from = row, to = col, weight = weight)
+    entry <- data.frame(from = as.numeric(rownames(matrix)[row]), to = as.numeric(colnames(matrix)[col]), weight = weight)
     
     # Append the entry to the data list
     new_df <- rbind(new_df, entry)
