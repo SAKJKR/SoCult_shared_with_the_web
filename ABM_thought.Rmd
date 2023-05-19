@@ -1,0 +1,256 @@
+---
+title: "ABM_tester"
+author: "SKK"
+date: "2023-05-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Describtion
+- DO NOT RUN ENTIRE SCRIPT; OPEN SAVED WORKSPACE
+| type | name | comment|
+|----- |------|--------|
+|vector    |hus_prob|probability of being a certain family type|
+|vector|ven_prob|probability of having a certain amount of friends|
+|vector|ie_prob| probability of having a certain introvert/extrovert score from Emma and Mias work|
+|vector|soba_prob| bounded normal distribution of probability of having a certain social battery|
+|vector|int_prob| probability of having a certain free time interest|
+
+# ABM
+## packages
+```{r setup, include=FALSE}
+pacman::p_load(tidyverse,
+        dplyr,
+        igraph,
+        ggplot2,
+        gridExtra,
+        here,
+        network,
+        ggraph,
+        tidygraph,
+        patchwork
+        )
+```
+
+## set seed
+```{r}
+#runif(1, 0, 10) #to pick a random number
+set.seed(226782)
+```
+
+## Prep for ABM
+### Prior knowledge
+- See [word_dokument](https://aarhusuniversitet-my.sharepoint.com/:w:/r/personal/au702259_uni_au_dk/Documents/26102021/Cog%20sci/4_semester/EXAMS/SoCult/socult_exam_paper.docx?d=w937d4e09542847d1973b3627b74b8856&csf=1&web=1&e=C8Ya9i) for more
+
+```{r husstande}
+setwd("C:/Users/sarak/OneDrive - Aarhus universitet/26102021/Cog sci/4_semester/EXAMS/SoCult/data")
+husstande <- read.csv("husstandsstørrelse2012-2022.csv",header=TRUE)
+hus <- husstande %>% 
+  rowwise() %>% 
+  mutate(mean = mean(c(X2012:X2022))) %>% 
+  mutate(sd=sd(c(X2012:X2022))) %>% 
+  mutate(n=as.factor(X.)) %>% 
+  mutate(n=as.numeric(n))
+
+n2022 <- sum(hus$X2022)
+
+hus_prob = c(hus[1, 12] / n2022,#be alone
+                                                                                hus[2, 12] / n2022,#household of 2
+                                                                                hus[3, 12] / n2022,#3
+                                                                                hus[4, 12] / n2022,#4
+                                                                                hus[5, 12] / n2022,#5
+                                                                                hus[6, 12] / n2022,#6
+                                                                                hus[7, 12] / n2022,#7
+                                                                                hus[8, 12] / n2022#8
+             )
+
+
+```
+
+```{r venner}
+procent <- c(1,
+    2,
+    5,
+    8,
+    12,
+    20,
+    10,
+    4,
+    6,
+    2,
+    30)
+
+ven_prob <- procent/100
+# sum(procent) #test hvis det giver 100%
+#n_numb <- 1430 #antal respondenter
+
+
+#only needed if you need to remember the structure
+# n_venner <- c(0,1,2,3,4,5,6,7,8,9,10) #venne kategorierne i samme rækkefølge som svarene
+# num <- cbind(n_venner,procent) #sæt sammen
+# 
+# num <- as.tibble(num) #as dataframe
+# 
+# num <- num %>% 
+#   mutate(n=n_numb*procent/100) %>% 
+#   mutate(n=as.integer(n))
+# 
+# #test what is missing
+# sum(num$n) #1426 missing 4 people =0,3% missing data
+# 
+# # see if it adds up to the fællesskabsmåling
+# weighted.mean(num$n_venner,num$n) #6,38
+```
+
+```{r introvert/extrovert}
+#from Emma and Mias work
+ie_prob <-   c(0.05, 0.15, 0.15, 0.1, 0.1, 0.15, 0.15, 0.1, 0.05)
+
+#or just a batteri som 0-10 with mean 5 and sd 2, meaning that having a battery of 1 or 9 is extreme cases and that most people lie with in 1-9 = 95%
+library(truncnorm)
+hist(rtruncnorm(n=1000, a=0, b=10, mean=5, sd=2))
+hist <- hist(rtruncnorm(n=1000, a=0, b=10, mean=5, sd=2))
+soba_prob <- hist$density #probability for each increment from 0-10 on batteri scale
+```
+
+```{r fritidsinteresser}
+setwd("C:/Users/sarak/OneDrive - Aarhus universitet/26102021/Cog sci/4_semester/EXAMS/SoCult/data")
+fritid <- read.csv("fritidsinteresser2022.csv",header=TRUE,sep=";")
+# 14 forskellige kategorier, der er værd at tage med (to steder er (angivet med +) er underkategorien taget fra, som at simplificere)
+
+fritid <- fritid %>% 
+  rowwise() %>% 
+  mutate(mean = mean(c(X1:X4))) #create mean over kvartaler
+
+int_prob <- fritid$mean/100 #probability per fritidsinteresse i samme rækkefølge som i dataframet
+```
+
+### Global environment
+- table setting
+- number of indslag
+- likelihood of getting up
+- duration (8 hours, 30 minutes = tick = 16 ticks per party)
+```{r}
+iterations <- as.integer(runif(1, 0, 80)) #to choose a random number of iterations to run the models from 0-80
+duration <- 16 #tics, tic = 30 minutter = 8 timer
+stimuli <- 0 #number of indslag as the default
+n_people <- 63 #default size of party 64 in total with one host
+```
+
+### People
+- number = 64
+- one super agent (host) who has an interest overlap with everyone and a relation to everyone
+  - person number 1
+- relationer
+- intro/extro
+- interesser
+```{r people}
+#to point out the hosts, so we can have interesser/relationer der overlapper med værten
+host_function <- function(iterations){
+  n_hosts <- iterations+100 #have the number of hosts needed for running all interations *100 to make them identifiable as hosts
+  
+  hosts <- tibble(
+    ID = 101:n_hosts, #*100 to give the hosts identifyable ID's
+    #introvert / extrovert scale from 1-9, from Emma and Mie
+    ie = sample(1:9, iterations, replace = TRUE, prob =  ie_prob),
+    
+    #the number does not really matter unless you want to make the network complecated...
+    n_household = sample(1:8, iterations, replace =TRUE, prob = hus_prob), 
+    n_closefriends = sample(0:10, iterations, replace = TRUE, prob = ven_prob), 
+   
+     #in the tryout markdown the randomization of interest was tested an only a few combination was shown twice, therefore we will not do anything further to randomize the selected interests.
+    interest1 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
+    interest2 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
+    interest3 = sample(1:14, iterations, replace = TRUE, prob = int_prob)
+  )
+  return(hosts)
+}
+
+for (i in iterations){ #just to get a feel of how to set up people function
+ host <- hosts[i,] #choose a host
+people_function(n_personer,host) #run the people function
+}#do not end it here, but run the entire abm for this, else save the dataframes in a list
+  
+people_function <- function(n_personer,host){
+  #decide host interest
+   host_interest <- c(host$interest1,host$interest2,host$interest3)
+
+   #make people
+   people <- tibble(
+     #individual
+     ID = 1:n_people, 
+     ie = sample(1:9, n_people, replace = TRUE, prob =  c(0.05, 0.15, 0.15, 0.1, 0.1, 0.15, 0.15, 0.1, 0.05)),
+     n_household = sample(1:8, n_people, replace =TRUE, prob = hus_prob),
+     n_closefriends = sample(0:10, n_people, replace = TRUE, prob = ven_prob),
+     
+     #interests based on the selected host
+     interest1 = sample(host_interest,n_people,replace=TRUE), #choose a random interest that fits with the host
+     interest2 = sample(1:14, n_people, replace = TRUE, prob = int_prob),
+     interest3 = sample(1:14, n_people, replace = TRUE, prob = int_prob)
+     )
+   return(people)
+}
+
+#save the selskab in one dataframe
+host <- host %>% 
+  mutate(
+    n_household=NA,
+    n_closefriends=NA
+  )
+
+party <- rbind(host,people) 
+```
+
+```{r networks}
+#list of people
+people_id <- tibble(ID = 1:n_people) #to make networks
+#dataframe structure: to from weight. weight: one weight added everytime they meet a total of 16 weights can be added, family nodes are made to start at 33 (at the end of party ranching from 33-49), friends nodes start at 16 (at the end of party ranching from 16-32)... arbitrary choice at the moment,
+```
+
+
+### types of parties (iterations = 80)
+#### rectangular
+- tables connections
+  - edges 3 connections
+  - others: 5 connections (i+-2,i+1,i+3,i+5)
+- indslag:
+  - hist(rnorm(iterations,5,1.5))
+- moveability:
+  - 
+
+#### circular
+- tables connections
+  - edges 3 connections
+  - others: 5 connections (i+-2,i+1,i+3,i+5)
+- indslag:
+  - hist(rnorm(iterations,5,1.5))
+  
+
+### Kør abm over
+- bordplan (sidde med venner, familie, fremmede)
+- forskellige typer fester
+
+## Run ABM
+- each tick workflow:
+  - see jakob drawing
+### update dateframes during
+- evaluate satisfaction, save data each tic
+- evaluate network, save start and end network
+
+# Analysis
+```{r, echo=FALSE}
+library(rethinking,
+        lme4)
+```
+
+## Theory
+- networks and parties in denmark
+###
+
+
+
+
+## ABM
