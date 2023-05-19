@@ -55,7 +55,7 @@ hosts <- tibble(
   
 ```{r test hosts}
 #check it out
-head(hosts)
+# head(hosts)
 #seems good
 
 #could be fun to make a radar chart of the hosts
@@ -78,18 +78,18 @@ head(hosts)
 ```
 
 ```{r test interest overlap}
-par(mfrow=c(1,3))
-plot(density(hosts$interest1))
-plot(density(hosts$interest2))
-plot(density(hosts$interest3))
-#library(plyr)
-dplyr::count_(hosts, vars = c('interest1','interest2','interest3'))
-aggregate(ID ~ ., hosts, FUN = length)
-
-dupes <- apply(hosts[,2:4], 1, function(x) any(duplicated(x)))
-dupes <- hosts[dupes, ]
-dup <- dupes[1,]
-stringr::str_count(dupes) #18 true #four characters, =28 procent had an overlap in at least two coloumns
+# par(mfrow=c(1,3))
+# plot(density(hosts$interest1))
+# plot(density(hosts$interest2))
+# plot(density(hosts$interest3))
+# #library(plyr)
+# dplyr::count_(hosts, vars = c('interest1','interest2','interest3'))
+# aggregate(ID ~ ., hosts, FUN = length)
+# 
+# dupes <- apply(hosts[,2:4], 1, function(x) any(duplicated(x)))
+# dupes <- hosts[dupes, ]
+# dup <- dupes[1,]
+# stringr::str_count(dupes) #18 true #four characters, =28 procent had an overlap in at least two coloumns
 ```
 
 ```{r setup people for party}
@@ -126,9 +126,9 @@ party <- rbind(host,guests)
 
 
 ```{r test interest overlap}
-#test if people have overlap in interests within themselves
-dupes <- apply(guests[,5:7], 1, function(x) any(duplicated(x)))
-stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap in at least two coloumns
+# #test if people have overlap in interests within themselves
+# dupes <- apply(guests[,5:7], 1, function(x) any(duplicated(x)))
+# stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap in at least two coloumns
 
 ```
 
@@ -137,7 +137,7 @@ stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap 
 party <- party %>% #add connection count to guests, the hosts is already full...
   mutate(max_friends = n_closefriends+1,
          current_n_connections = 0,
-         missing_friends = max_friends-current_n_connections
+         missing_friends = max_friends-current_n_connections,
          friend_ids = NA)
 
 #a full network of all people with zero connection weights
@@ -175,7 +175,6 @@ for (i in 1:nrow(party)) {
 ```
 
 
-
 ```{r trying network with matrix in stead}
 matrix <- base::matrix(0, nrow = n_people, ncol = n_people)	
 matrix <- as.data.frame(matrix)
@@ -199,21 +198,14 @@ matrix
 
 ```
 
-```{r}
-matrix <- m1[,1:64]
-```
-
-
-
 ```{r trying network with matrix in stead}	
 #collapse matrix into a dataframe with from, to and weight
-new_df <- data.frame(from = numeric(),
+pre_network <- data.frame(from = numeric(),
                      to = numeric(),
                      weight = numeric()
                      )
 
 # Iterate over each row and column in the matrix
-data_list <- list()
 for (row in seq_len(nrow(matrix))) {
   for (col in 1:ncol(matrix)) {
     # Extract the weight value from the matrix
@@ -224,17 +216,104 @@ for (row in seq_len(nrow(matrix))) {
     entry <- data.frame(from = as.numeric(rownames(matrix)[row]), to = as.numeric(colnames(matrix)[col]), weight = weight)
     
     # Append the entry to the data list
-    new_df <- rbind(new_df, entry)
+    pre_network <- rbind(pre_network, entry)
     }
   }
 }
-new_df
+pre_network
+```
+hehe finally 4 days later...
+
+
+```{r plot prenetwork}
+pacman::p_load(tidyverse,
+               here,
+               network,
+               igraph,
+               ggraph,
+               tidygraph,
+               patchwork)
+nodes <- party$ID
+
+pre_igraph <-
+  graph_from_data_frame(d = pre_network,
+                        vertices = nodes,
+                        directed = TRUE)
+
+
+pre_igraph <- simplify(pre_igraph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+E(pre_igraph)$arrow.mode <- 0
+
+
+
+V(pre_igraph)$label <- "" 
+
+V(pre_igraph)$frame.color <- "white"
+V(pre_igraph)$color <- "orange"
+E(pre_igraph)$width <- edge_attr(pre_igraph)$weight/16 #this one adjusts the size of arrows 
+#E(pre_igraph)$arrow.size <- 0.01
+plot(pre_igraph,
+     layout=layout_nicely,
+     #vertex.label= V(pr,
+     edge.arrow.size=0.01#,
+     #vertex.label.color = "black",
+     #vertex.size=node.size
+     )
+
+#ask Emma how to make their cool network plot
+```
+```{r tables}
+#make round + square tables
+n_tables <- 8
+n_seats <- 8
+
+#round
+round_table <- tibble(expand_grid(TableNo = seq(n_tables), SeatNo = seq(n_seats),ContactSeatNo=seq(2)))
+round_table <- round_table %>% mutate(ContactSeatNo=NA)#cleaning out the arbitrary numbers
+#square
+square_table <- tibble(expand_grid(TableNo = seq(n_tables), SeatNo = seq(n_seats),ContactSeatNo=seq(5)))
+square_table <- square_table %>% mutate(ContactSeatNo=NA)#cleaning out the arbitrary numbers
+#long
+long_table <- tibble(expand_grid(TableNo=1,SeatNo=seq(n_people),ContactSeatNo=seq(5)))
+long_table <- long_table[-c(4,5,9,10,314,315,319,320),] #remove edges partners as they do not exists.
+long_table <- long_table %>% mutate(ContactSeatNo=NA)#cleaning out the arbitrary numbers
+
+#input the seatno with the current seatno can make contact with in the contactseatno
+#round
+
+#square
+
+#long
+long_try <-  data.frame(table = NA, seat = NA, contact_seats = NA)
+# Loop through each table and seat
+for (table in 1:n_tables) {
+  for (seat in 1:n_seats) {
+    # Calculate the indices for the contact seats
+    indices <- c(seat - 1, seat - 2, seat+1, seat + 2, seat + 3)
+    indices <- +1
+    
+    # Remove any indices that are out of bounds
+    indices <- indices[indices > 1 & indices <= n_seats]
+    
+    # Create a new row for each contact seat
+    for (contact_seat in indices) {
+      long_temp <- data.frame(table = table, seat = seat, contact_seats = contact_seat)
+      
+      # Append the row to the dataframe
+      long_try <- rbind(long_try, long_temp)
+    }
+  }
+}
 ```
 
 
-
-
-
+```{r tables}
 --- mess --- måske er der noget godt der nede...
 
 ```{r friends network}
@@ -568,6 +647,7 @@ for (id in seq(party$ID)){
 #dataframe structure: to from weight. weight: one weight added everytime they meet a total of 16 weights can be added, family nodes are made to start at 33 (at the end of party ranching from 33-49), friends nodes start at 16 (at the end of party ranching from 16-32)... arbitrary choice at the moment,
 
 ```
+
 ```{r people}
 #to point out the hosts, so we can have interesser/relationer der overlapper med værten
 iterations <- 8
