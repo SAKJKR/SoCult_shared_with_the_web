@@ -177,21 +177,6 @@ plot(pre_net_graph,
 
 ```
 
-```{r}
-#clean out the pre_network
-pre_net <- pre_network[!(pre_network$weight==0),]
-
-pre_net_graph <-
-  graph_from_data_frame(d = pre_net,
-                        vertices = guests$ID,
-                        directed = TRUE)
-
-E(pre_net_graph)$width <- edge_attr(pre_net_graph)$weight/16#this one adjusts the size of arrows 
-
-plot(pre_net_graph,
-     layout = layout_on_sphere, # Explore layouts!
-     edge.arrow.size = 0.2)
-```
 
 --- Nået hertil ---
 
