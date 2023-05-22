@@ -538,9 +538,9 @@ for (p in table_type){
 
     
     #make prenetwork
-    pre_network <- make_prenetwork(party)
+    network <- make_prenetwork(party)
     #save prenetwork
-    df_collected$pre_network[[i]] <- pre_network
+    df_collected$pre_network[[i]] <- network
 
     
     #seat everybody to start off
@@ -572,6 +572,52 @@ for (p in table_type){
           con_people <- paste(con_people, collapse = ', ')
           con_people <- as.numeric(strsplit(con_people, ",\\s*")[[1]])
         }
+        
+        #make a dataframe with surrounding peoples variables
+        relation_possibilities <- tibble(seat=con_indices,id=con_people, outcome=0, n_interest = 0, friendshipscore = 0, decision = 0)
+        #fill
+        row1 <- which(party$ID == person)
+
+        for (cp in length(con_people)){
+              #in n_interest
+          row2 <- which(party$ID==con_people[2])
+
+          # Get the values in the columns for the specified rows
+          values_row1 <- party[row1, c("interest1", "interest2", "interest3")]
+          values_row2 <- party[row2, c("interest1", "interest2", "interest3")]
+          
+          # Check if the values are identical for the two rows
+          relation_possibilities$n_interest[cp] <- sum(sapply(values_row1, function(x) any(values_row2 %in% x)))
+          
+             #friendshipscore
+          row_index <- which(network$from == person & network$to == cp)
+          relation_possibilities$frienshipscore[cp] <- network$weight[row_index]
+          
+            # outcome column
+          wf <- party$weight_time[person]
+          wa <- party$weight_interest[person]
+          relation_possibilities$outcome[cp] <- wf *
+            relation_possibilities$frienshipscore[cp] + wa *
+            relation_possibilities$n_interest[cp] #watch out since old friend weigh heavily in this equation, hopefully it will surfice
+          
+        }
+        
+        #determine commitment
+        relation_possibilities$commitment[cp] <- relation_possibilities$outcome[cp] + (iterations - i +1) - max(relation_possibilities$outcome) 
+        #make decision whether to become friends
+        # Define a threshold value
+        threshold <- 0.5 #arbitrary
+        # Convert values to yes(1) or no(0) answer
+        relation_possibilities$decision[cp] <- ifelse(relation_possibilities$commitment[cp] >= threshold, 1, 0)
+        
+
+
+
+        
+        
+        
+        
+        
       #evaluate friendshipstatus
         #add 1 weight from the parson wanting the relationsship
       #evalute satisfaction for contacts seats
