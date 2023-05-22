@@ -111,13 +111,19 @@ tics <- 20 #each tic is 30 minutes = 10 hours of parting
 ```
 
 ## Set the tables
-### Make contact networks
+- Make contact networks
 structure is table (1:8), seat (1:8), indices for contact seats (1:8) with 1:5 contact seats, and their seat number depending on which table they are seated at (fx. table 1 seat 1 = new_Seat 11).
 
 They are saved in this workspace
 ```{r}
 setwd('.')
 load("tables.RData") #not completely updated
+
+#do this three times for each type of table/party
+table_type <- vector("list", length = 3)
+table_type[[1]] <- long_table
+table_type[[2]] <- round_tables
+table_type[[3]] <- square_tables
 
 #column 3 in all dataframes have to be ID
 ```
@@ -248,7 +254,6 @@ for (i in 1:nrow(long_table)) {
 ```
 
 ## Make hosts
-for each iterations
 
 ```{r make hosts}
 ### Define hosts of parties ###
@@ -361,56 +366,20 @@ make_prenetwork <- function(party_dataframe){
       pre_network <- pre_network %>% filter(from!=current_id)
       pre_network <- rbind(pre_network, temp)
   }
+  #save to environment
  pre_network <<- pre_network
 }
-make_prenetwork(party)
 ```
 
-## Seat guests
-```{r creating tables}
-#SK
-#Create a list of people that are not seated yet
 
-no_seat <- party$ID
-no_seat <- no_seat[sample(length(no_seat))]
-
-# assign people new seats
-table$ID[table$ID==0] <<- sample(no_seat, size = nrow(no_seat), replace = FALSE)
-
-
-#assuming person index = person, no_seat list exists
-if (decision_move == 'yes'){
-  #remove from their seat
-  table$ID[person] <- 0 #column 3 in all dataframes have to be ID
-  #add to no seat
-  new_no_seat <- c(person)
-  no_seat <- append(no_seat,new_no_seat)
-} #else stay seated
-```
-
-## Evaluteting satisfaction
-### not made yet
-```{r}
-#function not made 
-```
-
-```{r}
-#add another function for calculating satisfaction
-```
 
 # Running ABM
-##not done
-```{r}
-make_prenetwork(party)
-#do this three times for each type of table/party
-table_type <- vector("list", length = 3)
-table_type[[1]] <- long_table
-table_type[[2]] <- round_tables
-table_type[[3]] <- square_tables
+**remember to load probabilities, table types and global variables beforehand**
 
-#remember to load probabilities, table types and global variables beforehand 
+```{r ABM}
 start <- format(Sys.time(),"%HH %MM %SS")
 for (p in table_type){
+  table <- table_type[[p]]
   #make hosts
   hosts <- make_hosts(iterations)
   
@@ -463,8 +432,6 @@ for (p in table_type){
     for (tic in 1:tics){
       for (person in 1:nrow(party)){#do this for each person
         
-        ## working her###
-        
       #look at contact seats
         #get ID's for people sitting in contact seats
         #get contact seats
@@ -485,9 +452,9 @@ for (p in table_type){
         #fill
         row1 <- which(party$ID == person)
 
-        for (cp in length(con_people)){
+        for (cp in 1:length(con_people)){
               #in n_interest
-          row2 <- which(party$ID==con_people[2])
+          row2 <- which(party$ID==con_people[cp])
 
           # Get the values in the columns for the specified rows
           values_row1 <- party[row1, c("interest1", "interest2", "interest3")]
@@ -504,13 +471,13 @@ for (p in table_type){
           wf <- party$weight_time[person]
           wa <- party$weight_interest[person]
           relation_possibilities$outcome[cp] <- wf *
-            relation_possibilities$frienshipscore[cp] + wa *
+            relation_possibilities$friendshipscore[cp] + wa *
             relation_possibilities$n_interest[cp] #watch out since old friend weigh heavily in this equation, hopefully it will surfice
           
         }
         
         #determine commitment
-        relation_possibilities$commitment[cp] <- relation_possibilities$outcome[cp] + (iterations - i +1) - max(relation_possibilities$outcome) 
+        relation_possibilities$commitment[cp] <- relation_possibilities$outcome[cp] + (iterations - i +1) - max(relation_possibilities$outcome, na.rm =TRUE) 
         #make decision whether to become friends
         # Define a threshold value
         threshold <- 0.5 #arbitrary
@@ -541,8 +508,7 @@ for (p in table_type){
       #evalute overall satisfaction
           party[person, "satisfaction"][[1]] <- party[person, "satisfaction"][[1]] + check_friends_nearby #guests satisfaction is updated with the percentage of the people that they can sit next to actually are their friends (have a weight above 0) currently
 
-        ### working session buttom ####
-    
+
       #decide whether to move
         # Define a threshold value
         threshold <- 1 - party$ie[person]/10 #percent needed for people to make a decision e.g. ie = 9 (extrovert) /10 = 0,9 1-0,9 = 0,1 = 10% change needed for them to stay
