@@ -358,8 +358,7 @@ make_hosts <- function(number_of_iterations){
       interest2 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
       interest3 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
       weight_time = round((runif(iterations, min = -1, max = 1)),digits = 2),#testing to make weights for the satisfaction rate
-      weight_interest = 1-abs(weight_time),#testing to make weight for the satisfaction rate
-      moves = NA, #for counting how many times they move
+      weight_interest = 1-abs(weight_time)#testing to make weight for the satisfaction rate
     )
 }
 ``` 
@@ -388,16 +387,15 @@ make_party <- function(index_of_current_iteration){
                     interest3 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob),
                    
                     weight_time = round((runif(n_people-1, min = -1, max = 1)),digits = 2),#testing to make weights for the satisfaction rate
-                    weight_interest = 1-abs(weight_time),#testing to make weight for the satisfaction rate
-                   moves=NA, #for counting how many times they move
-                   satisfaction = 0 #not simulated yet
+                    weight_interest = 1-abs(weight_time)#testing to make weight for the satisfaction rate
   )
   ### make the party ###
   party <- rbind(host,guests)
   party <<- party %>% 
     mutate(friend_id=NA) %>% 
     mutate(satisfaction_baseline = 0) %>% # not simulated yet
-    mutate(satisfaction = 0) #how their satisfaction if moved according
+    mutate(satisfaction = 0) %>% 
+    mutate(moves = 0)#how their satisfaction if moved according
 
 }
 ```
@@ -609,20 +607,14 @@ for (p in table_type){
         threshold <- 0.5 #arbitrary
         # Convert values to yes(1) or no(0) answer
         relation_possibilities$decision[cp] <- ifelse(relation_possibilities$commitment[cp] >= threshold, 1, 0)
-        
-
-
-
-        
-        
-        
-        
-        
-      #evaluate friendshipstatus
+        #evaluate friendshipstatus
         #add 1 weight from the parson wanting the relationsship
-      #evalute satisfaction for contacts seats
+        for (cp in length(con_people)){
+        row_index <- which(network$from == person & network$to == cp)
+        network$weight[[row_index]] <- network$weight[[row_index]] + relation_possibilities$decision[cp]
+        }
 
-        
+
       #calculate proximity
         #check whether peoples current friends are near (meaning whether they are within contact seats)
         #get who we are looking at
@@ -634,30 +626,22 @@ for (p in table_type){
           friend <- prox$to[ap]
           prox_friends <- append(prox_friends,friend)
         }
-        
-        
-        #get ID's for people sitting in contact seats
-        #get contact seats
-        con_indices <- as.numeric(strsplit(table$indices[person], ",\\s*")[[1]])
-        #get the ID for the contact seats
-        con_people <- c()
-        for (ci in 1:length(con_indices)){
-          con_person <- table[ci,3][[1]] #column 3 in all dataframes have to be ID
-          # Combine the friend IDs
-          con_people <- c(con_people, con_person)
-          #save in right format
-          con_people <- paste(con_people, collapse = ', ')
-          con_people <- as.numeric(strsplit(con_people, ",\\s*")[[1]])
-        }
+
         check_friends_nearby <- sum(sapply(con_people, function(x) any(prox_friends %in% x))) #number of true instances of there contact_people overlap with current friend network
         
-        #add to satisfaction
+      #evalute overall satisfaction
           party[person, "satisfaction"][[1]] <- party[person, "satisfaction"][[1]] + check_friends_nearby #guests satisfaction is updated with the percentage of the people that they can sit next to actually are their friends (have a weight above 0) currently
 
         ### working session buttom ####
     
-      #evalute overall satisfaction
       #decide whether to move
+        # Define a threshold value
+        threshold <- 1 - party$ie[person]/10 #percent needed for people to make a decision e.g. ie = 9 (extrovert) /10 = 0,9 1-0,9 = 0,1 = 10% change needed for them to stay
+          #change
+          change <- (party$satisfaction_baseline[person] - party$satisfaction[person]) / party$satisfaction_baseline[person]
+        # Convert values to yes(1) or no(0) answer
+        party[person, "moves"][[1]] <- ifelse() relation_possibilities$decision[cp] <- ifelse(relation_possibilities$commitment[cp] >= threshold, 1, 0)
+
       #assuming person index = person, no_seat list exists
         if (decision_move == 'yes'){
           #remove from their seat
