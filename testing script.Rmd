@@ -100,7 +100,8 @@ n_seats <- 8      # tables
 indslag <- NA     #no added external stimuli yet
 boundent_move <- NA #no added restricted move time yet
 df_collected <- tibble(expand.grid(iteration=seq(iterations), # Create an empty list to store the data frames
-                                   table_type,party=vector("list", length = iterations),
+                                   table_type=NA,
+                                   party=vector("list", length = iterations),
                                    pre_network=vector("list", length = iterations),
                                    post_network=vector("list", length = iterations)
                                    )
@@ -116,13 +117,13 @@ structure is table (1:8), seat (1:8), indices for contact seats (1:8) with 1:5 c
 They are saved in this workspace
 ```{r}
 setwd('.')
-load("tables.RData")
+load("tables.RData") #not completely updated
 ```
 
 ```{r round}
 #input the seatno with the current seatno can make contact with in the contactseatno
 #round
-round_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), contact_seats = NA, indices=NA))
+round_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), ID = 0, indices=NA))
 #add table no to their seat no
 round_tables$new_seat <-paste(round_tables$table, round_tables$seat, sep='') 
 
@@ -190,7 +191,7 @@ plot(round_graph,
 
 ```{r square}
 #square
-square_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), contact_seats = NA, indices =NA))
+square_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), ID = 0, indices =NA))
 square_tables$new_seat <- paste(square_tables$table, square_tables$seat, sep='') 
 
 
@@ -255,8 +256,9 @@ plot(square_graph,
 ```
 
 ```{r long}
+n_people <- 64
 #long
-long_table <- tibble(table=NA,seat=1:n_people,contact=NA,indices=NA)
+long_table <- tibble(table=1,seat=1:n_people,ID=0,indices=NA)
 # Iterate over each row in the dataframe
 for (i in 1:nrow(long_table)) {
    seat <- i
@@ -344,7 +346,7 @@ for each iterations
 make_hosts <- function(number_of_iterations){ 
   max_hosts <- iterations+100 #define the highest host id (+100 to make hosts identifiable)
     
-  hosts <- tibble(
+  hosts <<- tibble(
       ID = 101:max_hosts, #+100 to give the hosts identifyable ID's
       ie = sample(1:9, iterations, replace = TRUE, prob =  ie_prob),    #introvert / extrovert scale from 1-9, from Emma and Mie
       n_household = sample(1:8,iterations, replace =TRUE, prob = hus_prob), #Number of people in your household
@@ -354,9 +356,9 @@ make_hosts <- function(number_of_iterations){
       interest2 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
       interest3 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
       weight_time = round((runif(iterations, min = -1, max = 1)),digits = 2),#testing to make weights for the satisfaction rate
-      weight_interest = 1-abs(weight_time)#testing to make weight for the satisfaction rate
+      weight_interest = 1-abs(weight_time),#testing to make weight for the satisfaction rate
+      moves = NA #for counting how many times they move
     )
-  return(hosts)
 }
 ``` 
   
@@ -384,11 +386,13 @@ make_party <- function(index_of_current_iteration){
                     interest3 = sample(1:14, n_people-1, replace = TRUE, prob = int_prob),
                    
                     weight_time = round((runif(n_people-1, min = -1, max = 1)),digits = 2),#testing to make weights for the satisfaction rate
-                    weight_interest = 1-abs(weight_time)#testing to make weight for the satisfaction rate
+                    weight_interest = 1-abs(weight_time),#testing to make weight for the satisfaction rate
+                   moves=NA #for counting how many times they move
   )
   ### make the party ###
   party <- rbind(host,guests)
-  return(party)
+  party <<- party %>% 
+    mutate(friend_id=NA)
 
 }
 ```
@@ -429,6 +433,7 @@ make_prenetwork <- function(party_dataframe){
 
     # Assign the selected friend IDs to the corresponding row in the dataframe
     party$friend_id[i] <- paste(friend_ids, collapse = ', ')
+    party <<- party #save to environmet
   }
   
   #Add weight to all the friendships we just created
@@ -444,13 +449,34 @@ make_prenetwork <- function(party_dataframe){
       pre_network <- pre_network %>% filter(from!=current_id)
       pre_network <- rbind(pre_network, temp)
   }
- return(pre_network) 
+ pre_network <<- pre_network
 }
+make_prenetwork(party)
+```
+
+## Seat guests
+```{r creating tables}
+#SK
+#Create a list of people that are not seated yet
+
+no_seat <- party$ID
+no_seat <- no_seat[sample(length(no_seat))]
+
+# assign people new seats
+table$ID[table$ID==0] <<- sample(no_seat, size = nrow(no_seat), replace = FALSE)
+
+
+#assuming person index = person, no_seat list exists
+if (decision_move == 'yes'){
+  #remove from their seat
+  table$ID[person] <- 0
+  #add to no seat
+  new_no_seat <- c(person)
+  no_seat <- append(no_seat,new_no_seat)
+} #else stay seated
 ```
 
 ## Evaluteting satisfaction
-
-
 ### not made yet
 ```{r}
 #function not made 
@@ -463,6 +489,7 @@ make_prenetwork <- function(party_dataframe){
 # Running ABM
 ##not done
 ```{r}
+make_prenetwork(party)
 #do this three times for each type of table/party
 table_type <- vector("list", length = 3)
 table_type[[1]] <- long_table
@@ -474,14 +501,30 @@ start <- format(Sys.time(),"%HH %MM %SS")
 for (p in table_type){
   #make hosts
   hosts <- make_hosts(iterations)
+  
+  #get the table type
+  if (table == table_type[[1]]){
+  #save table type for future reference
+    df_collected$table_type[i] <- long
+    #get the table
+    table <- long_table
+  }else if (table == table_type[[2]]){
+    #save table type for future reference
+    df_collected$table_type[i] <- round
+    #get the table
+    table <- round_tables
+  }else if (table == table_type[[3]]){
+    #save table type for future reference
+    df_collected$table_type[i] <- square
+    #get the table
+    table <- square_tables
+  }
+
+  
   #repeat x times for each type of table/party
   for (i in 1:iterations){
     #save iteration for future reference
     df_collected$iteration[i] <- i
-
-    #save table type for future reference
-    df_collected$table_type[i] <- paste(table_type)
-    
     
     #make party
     party <- make_party(i)
@@ -490,15 +533,44 @@ for (p in table_type){
 
     
     #make prenetwork
-    make_prenetwork(party)
+    pre_network <- make_prenetwork(party)
     #save prenetwork
     df_collected$pre_network[[i]] <- pre_network
 
     
+    #seat everybody to start off
+    #get people
+    no_seat <- party$ID
+    #shuffle
+    no_seat <- no_seat[sample(length(no_seat))]
+    # assign people seats
+    table$ID[table$ID==0] <<- sample(no_seat, size = nrow(no_seat), replace = FALSE)
+    no_seat <- c()
+
     #start party
     for (tic in 1:tics){
-      #seat everybody at the table
+      for (person in 1:nrow(party)){#do this for each person
       #calculate proximity
+        #check whether peoples current friends are near
+        #(meaning for round & square whether they are at the table, long whether they are within contact seats)
+        #get who we are looking at
+        prox <- pre_network %>% 
+          filter(weight!=0) %>% 
+          filter(from == person)
+        prox_friends <- c() #empty vector to store friend ID's
+        for (ap in nrow(prox)){
+          friend <- prox$to[ap]
+          prox_friends <- append(prox_friends,friend)
+        }
+        friends_within_reach <- 0 #set counter
+        cs_len <- as.vector(table$indices[person])
+        fr_len <- length(prox_friends)
+        #check overlap with contact seats
+        for (fr in seq(prox_friends)){
+          #kommet her til
+          
+        }
+        
       #evalute satisfaction for proximity
         #missing function for that
       #look at contact seats
@@ -507,11 +579,23 @@ for (p in table_type){
       #evalute satisfaction for contacts seats
       #evalute overall satisfaction
       #decide whether to move
+      #assuming person index = person, no_seat list exists
         if (decision_move == 'yes'){
-          no_person <- c(ID=party$id[that_person_index])
-          no_seat_list <- rbind(no_seat_list,no_person)
-          #remove that person from their current table by setting ID to NA
+          #remove from their seat
+          table$ID[person] <- 0
+          #add to no seat
+          new_no_seat <- c(person)
+          no_seat <- append(no_seat,new_no_seat)
+          #add one value to their move count
+          party$moves[person] <- party$moves[person] +1
         } #else stay seated
+      }#go from individual to global level
+      
+      #seat everyone
+      table$ID[table$ID==0] <<- sample(no_seat, size = nrow(no_seat), replace = FALSE)
+      #clear out no_seat_list
+      no_seat <- c()
+
       
     } #after all tics
     
