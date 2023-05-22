@@ -7,14 +7,13 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-pacman::p_load(tidyverse)
+pacman::p_load(tidyverse, igraph)
 
 ```
 
-# get probabilities
+# get probabilities of people being in the same household
 ```{r husstande}
-setwd("C:/Users/sarak/OneDrive - Aarhus universitet/26102021/Cog sci/4_semester/EXAMS/SoCult/data")
-husstande <- read.csv("husstandsstørrelse2012-2022.csv",header=TRUE)
+husstande <- read.csv("husstandsstørrelse2012-2022.csv",header=TRUE) #read in the houshold data
 hus <- husstande %>% 
   rowwise() %>% 
   mutate(mean = mean(c(X2012:X2022))) %>% 
@@ -60,14 +59,13 @@ ven_prob <- procent/100
 ie_prob <-   c(0.05, 0.15, 0.15, 0.1, 0.1, 0.15, 0.15, 0.1, 0.05)
 
 #or just a batteri som 0-10 with mean 5 and sd 2, meaning that having a battery of 1 or 9 is extreme cases and that most people lie with in 1-9 = 95%
-library(truncnorm)
+pacman::p_load(truncnorm)
 hist(rtruncnorm(n=1000, a=0, b=10, mean=5, sd=2))
 hist <- hist(rtruncnorm(n=1000, a=0, b=10, mean=5, sd=2))
 soba_prob <- hist$density #probability for each increment from 0-10 on batteri scale
 ```
 
 ```{r fritidsinteresser}
-setwd("C:/Users/sarak/OneDrive - Aarhus universitet/26102021/Cog sci/4_semester/EXAMS/SoCult/data")
 fritid <- read.csv("fritidsinteresser2022.csv",header=TRUE,sep=";")
 # 14 forskellige kategorier, der er værd at tage med (to steder er (angivet med +) er underkategorien taget fra, som at simplificere)
 
@@ -83,6 +81,8 @@ setwd('.')
 load("prob.RData")
 ```
 
+
+---- This does the same as all code above --- 
 ```{r saved probabilties written out}
 ie_prob <- c(0.05, 0.15, 0.15, 0.10, 0.10, 0.15, 0.15, 0.10, 0.05) #Introvert/extrovert prob on scale from 1 - 10. From Emma and Mie
 int_prob <- c(0.955, 0.955, 0.435, 0.645, 0.625, 0.545, 0.390, 0.325, 0.845, 0.750, 0.320, 0.355, 0.250, 0.215) #Interest probabilities. 14 different interests taken from Statistikbanken.
@@ -96,7 +96,7 @@ hus_prob <-c(0.3970565,0.333184,0.1130965,0.1074418, 0.03661024,0.008320509, 0.0
 iterations <- 1   #How many times do we want to run the model? Starting off with making it run once
 n_people <- 64    #How many people are at a party?
 n_tables <- 8     #for round & square
-n_seats <- 8      # tables
+n_seats <- 8      # number of seats per table
 indslag <- NA     #no added external stimuli yet
 boundent_move <- NA #no added restricted move time yet
 df_collected <- tibble(expand.grid(iteration=seq(iterations), # Create an empty list to store the data frames
@@ -122,12 +122,14 @@ load("tables.RData") #not completely updated
 #column 3 in all dataframes have to be ID
 ```
 
+
+#Creating the tables
 ```{r round}
 #input the seatno with the current seatno can make contact with in the contactseatno
 #round
 round_tables <- tibble(expand.grid(table = seq(n_tables), seat = seq(n_seats), ID = 0, indices=NA))
 #add table no to their seat no
-round_tables$new_seat <-paste(round_tables$table, round_tables$seat, sep='') 
+round_tables$new_seat <-paste(round_tables$table, round_tables$seat, sep='') #Giving all seats at the party a unique ID
 
 
 # make contact seats
@@ -300,6 +302,9 @@ for (i in 1:nrow(long_table)) {
 
 }
 
+
+#Visualisation
+
 long <- expand.grid(from=long_table$seat,to=long_table$seat)
 long$weight <- 0
 long <- filter(long, from != to)
@@ -454,6 +459,7 @@ make_prenetwork <- function(party_dataframe){
   }
  pre_network <<- pre_network
 }
+
 make_prenetwork(party)
 ```
 
@@ -788,6 +794,21 @@ plot(pre_igraph,
 
 #ask Emma how to make their cool network plot
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # mess --- måske er der noget godt der nede...
