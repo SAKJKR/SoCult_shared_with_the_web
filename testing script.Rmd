@@ -218,14 +218,13 @@ for (i in 1:nrow(long_table)) {
      # Calculate the indices for the contact seats
    #corners
    if (seat == 1 ){
-     indices <- c(seat +1, seat + 2, seat + 3)}
+     indices <- c(seat + 1, seat + 2, seat + 3)}
    else if (seat == 2 ){
-     indices <- c(seat -1, seat +1, seat + 2)}
-   else if (seat == n_people-1){
-     indices <- c(seat +1, seat - 2, seat -1)}
-   else if (seat == n_people){
-     indicies <- c(seat-1, seat-2, seat-3)
-   }
+     indices <- c(seat - 1, seat + 1, seat + 2)}
+   else if (seat == n_people -1){
+     indices <- c(seat + 1, seat - 2, seat - 1)}
+   else if (seat == 64){
+     indices <- c(63, 62, 61)}
    #index +3 and -3, for some reason is off...
    else if (seat == 3){
      indices <- c(seat-1,seat-2,seat+1,seat+2,seat+3)
@@ -307,7 +306,7 @@ make_party <- function(index_of_current_iteration){
   party <- rbind(host,guests)
   party <<- party %>% 
     mutate(friend_id=NA) %>% 
-    mutate(satisfaction_baseline = 0) %>% # not simulated yet
+    mutate(satisfaction_baseline = 0) %>% # not simulated yet, CANNOT BE ZERO
     mutate(satisfaction = 0) %>% 
     mutate(moves = 0)#how their satisfaction if moved according
 
@@ -378,43 +377,30 @@ make_prenetwork <- function(party_dataframe){
 
 ```{r ABM}
 start <- format(Sys.time(),"%HH %MM %SS")
+
 for (p in table_type){
+  
   table <- table_type[[p]]
+  
   #make hosts
   hosts <- make_hosts(iterations)
   
-  #get the table type
-  if (table == table_type[[1]]){
-  #save table type for future reference
-    df_collected$table_type[i] <- long
-    #get the table
-    table <- long_table
-  }else if (table == table_type[[2]]){
-    #save table type for future reference
-    df_collected$table_type[i] <- round
-    #get the table
-    table <- round_tables
-  }else if (table == table_type[[3]]){
-    #save table type for future reference
-    df_collected$table_type[i] <- square
-    #get the table
-    table <- square_tables
-  }
-
   
   #repeat x times for each type of table/party
   for (i in 1:iterations){
+    df_collected$table_type[i] <- if (p == 1) "long" else if (p == 2) "round" else "square"
+    
+    print("starting ", i, " out of ", iterations, " iterations for ", df_collected$table_type[i], " type of table")
+    
     #save iteration for future reference
     df_collected$iteration[i] <- i
     
     #make party
     party <- make_party(i)
-    #save party
-    df_collected$party[[i]] <- party
-
     
     #make prenetwork
     network <- make_prenetwork(party)
+    
     #save prenetwork
     df_collected$pre_network[[i]] <- network
 
@@ -422,23 +408,29 @@ for (p in table_type){
     #seat everybody to start off
     #get people
     no_seat <- party$ID
+
     #shuffle
     no_seat <- no_seat[sample(length(no_seat))]
     # assign people seats
-    table$ID[table$ID==0] <<- sample(no_seat, size = nrow(no_seat), replace = FALSE)
+    table$ID[table$ID==0] <- sample(no_seat, size = length(no_seat), replace = FALSE)
     no_seat <- c()
+    
 
     #start party
     for (tic in 1:tics){
-      for (person in 1:nrow(party)){#do this for each person
+    print("starting ", tic, " out of ", tics, " tics ")
+
+      for (person in party$ID){#do this for each person
+        person_table <- which(table$ID==person)
+        person_party <- which(party$ID==person)
         
       #look at contact seats
         #get ID's for people sitting in contact seats
         #get contact seats
-        con_indices <- as.numeric(strsplit(table$indices[person], ",\\s*")[[1]])
+        con_indices <- as.numeric(strsplit(table$indices[person_table], ",\\s*")[[1]])
         #get the ID for the contact seats
         con_people <- c()
-        for (ci in 1:length(con_indices)){
+        for (ci in con_indices){
           con_person <- table[ci,3][[1]] #column 3 in all dataframes have to be ID
           # Combine the friend IDs
           con_people <- c(con_people, con_person)
@@ -448,109 +440,134 @@ for (p in table_type){
         }
         
         #make a dataframe with surrounding peoples variables
-        relation_possibilities <- tibble(seat=con_indices,id=con_people, outcome=0, n_interest = 0, friendshipscore = 0, decision = 0)
+        relation_possibilities <- tibble(seat=con_indices,ID=con_people, outcome=0, n_interest = 0, friendshipscore = 0, decision = 0,commitment=0)
         #fill
-        row1 <- which(party$ID == person)
-
-        for (cp in 1:length(con_people)){
+        for (cp in con_people){
               #in n_interest
-          row2 <- which(party$ID==con_people[cp])
+          row2 <- which(party$ID == cp)
 
           # Get the values in the columns for the specified rows
-          values_row1 <- party[row1, c("interest1", "interest2", "interest3")]
+          values_row1 <- party[person_party, c("interest1", "interest2", "interest3")]
           values_row2 <- party[row2, c("interest1", "interest2", "interest3")]
           
           # Check if the values are identical for the two rows
-          relation_possibilities$n_interest[cp] <- sum(sapply(values_row1, function(x) any(values_row2 %in% x)))
+          rp_cp <- which(relation_possibilities$ID== cp)
+          relation_possibilities$n_interest[rp_cp] <- sum(sapply(values_row1, function(x) any(values_row2 %in% x)))
           
              #friendshipscore
           row_index <- which(network$from == person & network$to == cp)
-          relation_possibilities$frienshipscore[cp] <- network$weight[row_index]
+          relation_possibilities$friendshipscore[rp_cp] <- network$weight[row_index]
           
             # outcome column
-          wf <- party$weight_time[person]
-          wa <- party$weight_interest[person]
-          relation_possibilities$outcome[cp] <- wf *
-            relation_possibilities$friendshipscore[cp] + wa *
-            relation_possibilities$n_interest[cp] #watch out since old friend weigh heavily in this equation, hopefully it will surfice
+          wf <- party$weight_time[person_party][[1]]
+          wa <- party$weight_interest[person_party][[1]]
+          relation_possibilities$outcome[rp_cp] <- wf *
+            relation_possibilities$friendshipscore[rp_cp] + wa *
+            relation_possibilities$n_interest[rp_cp] #watch out since old friend weigh heavily in this equation, hopefully it will surfice
           
         }
         
         #determine commitment
-        relation_possibilities$commitment[cp] <- relation_possibilities$outcome[cp] + (iterations - i +1) - max(relation_possibilities$outcome, na.rm =TRUE) 
+        for (cp in con_people){
+          rp_cp <- which(relation_possibilities$ID== cp)
+          rp_cp_com <- relation_possibilities %>% 
+            filter(ID != cp)
+          relation_possibilities$commitment[rp_cp] <- relation_possibilities$outcome[rp_cp] + (iterations - i +1) - max(relation_possibilities$outcome, na.rm =TRUE)
+            
+        }
+        
         #make decision whether to become friends
         # Define a threshold value
         threshold <- 0.5 #arbitrary
         # Convert values to yes(1) or no(0) answer
-        relation_possibilities$decision[cp] <- ifelse(relation_possibilities$commitment[cp] >= threshold, 1, 0)
+        relation_possibilities$decision <- ifelse(relation_possibilities$commitment >= threshold, 1, 0)
         #evaluate friendshipstatus
         #add 1 weight from the parson wanting the relationsship
-        for (cp in length(con_people)){
+        for (cp in con_people){
+        rp_cp <- which(relation_possibilities$ID== cp)
         row_index <- which(network$from == person & network$to == cp)
-        network$weight[[row_index]] <- network$weight[[row_index]] + relation_possibilities$decision[cp]
+        network$weight[[row_index]] <- network$weight[[row_index]] + relation_possibilities$decision[rp_cp]
         }
 
 
       #calculate proximity
         #check whether peoples current friends are near (meaning whether they are within contact seats)
         #get who we are looking at
-        prox <- pre_network %>% 
+        prox <- network %>% 
           filter(weight!=0) %>% 
           filter(from == person)
         prox_friends <- c() #empty vector to store friend ID's
         for (ap in 1:nrow(prox)){
           friend <- prox$to[ap]
-          prox_friends <- append(prox_friends,friend)
+          prox_friends <- c(prox_friends,friend)
         }
 
         check_friends_nearby <- sum(sapply(con_people, function(x) any(prox_friends %in% x))) #number of true instances of there contact_people overlap with current friend network
         
       #evalute overall satisfaction
-          party[person, "satisfaction"][[1]] <- party[person, "satisfaction"][[1]] + check_friends_nearby #guests satisfaction is updated with the percentage of the people that they can sit next to actually are their friends (have a weight above 0) currently
+          party[person_party, "satisfaction"][[1]] <- party[person_party, "satisfaction"][[1]] + check_friends_nearby #guests satisfaction is updated with the percentage of the people that they can sit next to actually are their friends (have a weight above 0) currently
 
 
       #decide whether to move
         # Define a threshold value
-        threshold <- 1 - party$ie[person]/10 #percent needed for people to make a decision e.g. ie = 9 (extrovert) /10 = 0,9 1-0,9 = 0,1 = 10% change needed for them to stay
+        threshold <- 1 - party$ie[person_party]/10 #percent needed for people to make a decision e.g. ie = 9 (extrovert) /10 = 0,9 1-0,9 = 0,1 = 10% change needed for them to stay
           #change
-          change <- (party$satisfaction_baseline[person] - party$satisfaction[person]) / party$satisfaction_baseline[person]
+          change <- (party$satisfaction[person_party] - party$satisfaction_baseline[person_party]) / party$satisfaction_baseline[person_party]
         # Convert values to yes(1) or no(0) answer
         decision_move <- ifelse(change > threshold, "no", "yes")
       #assuming person index = person, no_seat list exists
         if (decision_move == 'yes'){
           #add one to move count
-          party[person, "moves"][[1]] <- party[person, "moves"][[1]] + 1
-        row_index <- which(table$ID == person)
+          party[person_party, "moves"][[1]] <- party[person_party, "moves"][[1]] + 1
           #remove from their seat
-          table$ID[row_index] <- 0
+          table$ID[person_table] <- 0
           #add to no seat
           new_no_seat <- c(person)
           no_seat <- c(no_seat,new_no_seat)
         } #else stay seated
-      }#go from individual to global level
+      }
+      #go from individual to global level
       
       #seat everyone
-      table$ID[table$ID==0] <<- sample(no_seat, size = nrow(no_seat), replace = FALSE)
+      table$ID[table$ID==0] <- sample(no_seat, size = length(no_seat), replace = FALSE)
       #clear out no_seat_list
       no_seat <- c()
       #reset their satisfaction status back to baseline
       party$satisfaction <-  party$satisfaction_baseline
-
+      
       
     } #after all tics
     
     #save postnetwork
     df_collected$post_network[[i]] <- network
+    #save party
+    df_collected$party[[i]] <- party
+    
 
   }
+  
 }
+#save workspace instead
+save.image("/ABM.RData")
+#write.csv(df_collected, file = "ABM_dataframe.csv")
+
 end <- format(Sys.time(),"%HH %MM %SS")
 
 #duration of running abm
-duration <- end-start
-paste("The ABM on",table_type,"with",iterations, "iterations took",duration)
+# Convert time values to POSIXlt objects
+start_time <- strptime(start, "%HH %MM %SS")
+end_time <- strptime(end, "%HH %MM %SS")
 
-write.csv(df_collected, file = "ABM_dataframe.csv")
+# Calculate time difference
+time_diff <- end_time - start_time
+
+# Extract hours, minutes, and seconds components
+hours <- time_diff$hour
+minutes <- time_diff$min
+seconds <- time_diff$sec
+
+# Print the time difference
+print("It took ", hours, "H ", minutes, "M ", seconds, "S", "to run")
 
 
 ```
@@ -626,7 +643,7 @@ pacman::p_load(tidyverse,
 nodes <- party$ID
 
 pre_igraph <-
-  graph_from_data_frame(d = pre_network,
+  graph_from_data_frame(d = df_collected$pre_network[[1]],
                         vertices = nodes,
                         directed = TRUE)
 
@@ -748,4 +765,48 @@ plot(long_graph,
      layout = layout_nicely, # Explore layouts!
      edge.arrow.size = 0.2) 
 
+```
+
+```{r plot post_network}
+pacman::p_load(tidyverse,
+               here,
+               network,
+               igraph,
+               ggraph,
+               tidygraph,
+               patchwork)
+nodes <- party$ID
+
+post_igraph <-
+  graph_from_data_frame(d =df_collected$post_network[[1]],
+                        vertices = nodes,
+                        directed = TRUE)
+
+
+post_igraph <- simplify(post_igraph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+E(post_igraph)$arrow.mode <- 0
+
+
+
+V(post_igraph)$label <- "" 
+
+V(post_igraph)$frame.color <- "white"
+V(post_igraph)$color <- "orange"
+E(post_igraph)$width <- edge_attr(post_igraph)$weight/16 #this one adjusts the size of arrows 
+#E(post_igraph)$arrow.size <- 0.01
+plot(post_igraph,
+     layout=layout_nicely,
+     #vertex.label= V(pr,
+     edge.arrow.size=0.01#,
+     #vertex.label.color = "black",
+     #vertex.size=node.size
+     )
+
+#ask Emma how to make their cool network plot
 ```
