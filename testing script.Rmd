@@ -12,31 +12,6 @@ pacman::p_load(tidyverse)
 ```
 
 # get probabilities
-```{r husstande}
-setwd("C:/Users/sarak/OneDrive - Aarhus universitet/26102021/Cog sci/4_semester/EXAMS/SoCult/data")
-husstande <- read.csv("husstandsstørrelse2012-2022.csv",header=TRUE)
-hus <- husstande %>% 
-  rowwise() %>% 
-  mutate(mean = mean(c(X2012:X2022))) %>% 
-  mutate(sd=sd(c(X2012:X2022))) %>% 
-  mutate(n=as.factor(X.)) %>% 
-  mutate(n=as.numeric(n))
-
-n2022 <- sum(hus$X2022)
-
-hus_prob = c(hus[1, 12] / n2022,#be alone
-                                                                                hus[2, 12] / n2022,#household of 2
-                                                                                hus[3, 12] / n2022,#3
-                                                                                hus[4, 12] / n2022,#4
-                                                                                hus[5, 12] / n2022,#5
-                                                                                hus[6, 12] / n2022,#6
-                                                                                hus[7, 12] / n2022,#7
-                                                                                hus[8, 12] / n2022#8
-             )
-
-
-```
-
 ```{r venner}
 procent <- c(1,
     2,
@@ -61,8 +36,8 @@ ie_prob <-   c(0.05, 0.15, 0.15, 0.1, 0.1, 0.15, 0.15, 0.1, 0.05)
 
 #or just a batteri som 0-10 with mean 5 and sd 2, meaning that having a battery of 1 or 9 is extreme cases and that most people lie with in 1-9 = 95%
 library(truncnorm)
-hist(rtruncnorm(n=1000, a=0, b=10, mean=5, sd=2))
-hist <- hist(rtruncnorm(n=1000, a=0, b=10, mean=5, sd=2))
+hist(rtruncnorm(n=1000, a=1, b=10, mean=5, sd=2))
+hist <- hist(rtruncnorm(n=1000, a=1, b=10, mean=5, sd=2))
 soba_prob <- hist$density #probability for each increment from 0-10 on batteri scale
 ```
 
@@ -80,33 +55,32 @@ int_prob <- fritid$mean/100 #probability per fritidsinteresse i samme rækkeføl
 
 ```{r saved probabilties}
 setwd('.')
-load("prob.RData")
+load("prob.RData") #not updated
 ```
 
 ```{r saved probabilties written out}
 ie_prob <- c(0.05, 0.15, 0.15, 0.10, 0.10, 0.15, 0.15, 0.10, 0.05) #Introvert/extrovert prob on scale from 1 - 10. From Emma and Mie
 int_prob <- c(0.955, 0.955, 0.435, 0.645, 0.625, 0.545, 0.390, 0.325, 0.845, 0.750, 0.320, 0.355, 0.250, 0.215) #Interest probabilities. 14 different interests taken from Statistikbanken.
 ven_prob <- c(0.01, 0.02, 0.05, 0.08, 0.12, 0.20, 0.10, 0.04, 0.06, 0.02, 0.30) #Probabilities of having different number of friends. Taken from Vive paper
-hus_prob <-c(0.3970565,0.333184,0.1130965,0.1074418, 0.03661024,0.008320509, 0.002352696, 0.001937746) # Number of people in your household probability
 ```
 
 # Prepare ABM environment
 ## global variables
 ```{r global}
-iterations <- 1   #How many times do we want to run the model? Starting off with making it run once
+iterations <- 120    #How many times do we want to run the model? Starting off with making it run once
 n_people <- 64    #How many people are at a party?
 n_tables <- 8     #for round & square
 n_seats <- 8      # tables
 indslag <- NA     #no added external stimuli yet
 boundent_move <- NA #no added restricted move time yet
+tics <- 20 #each tic is 30 minutes = 10 hours of parting
 df_collected <- tibble(expand.grid(iteration=seq(iterations), # Create an empty list to store the data frames
-                                   table_type=NA,
+                                   table_type=seq(length(table_type)),
                                    party=vector("list", length = iterations),
                                    pre_network=vector("list", length = iterations),
                                    post_network=vector("list", length = iterations)
                                    )
                        )
-tics <- 20 #each tic is 30 minutes = 10 hours of parting
 
 ```
 
@@ -115,9 +89,9 @@ tics <- 20 #each tic is 30 minutes = 10 hours of parting
 structure is table (1:8), seat (1:8), indices for contact seats (1:8) with 1:5 contact seats, and their seat number depending on which table they are seated at (fx. table 1 seat 1 = new_Seat 11).
 
 They are saved in this workspace
-```{r}
+```{r saved tables}
 setwd('.')
-load("tables.RData") #not completely updated
+load("tables.RData") #not updated
 
 #do this three times for each type of table/party
 table_type <- vector("list", length = 3)
@@ -265,7 +239,7 @@ make_hosts <- function(number_of_iterations){
       ID = 101:max_hosts, #+100 to give the hosts identifyable ID's
       ie = sample(1:9, iterations, replace = TRUE, prob =  ie_prob),    #introvert / extrovert scale from 1-9, from Emma and Mie
       n_household = sample(1:8,iterations, replace =TRUE, prob = hus_prob), #Number of people in your household
-      n_closefriends = n_people-1, #friends with every one at the party
+      n_closefriends = n_people, #friends with every one at the party
       #in the tryout markdown the randomization of interest was tested an only a few combination was shown twice, therefore we will not do anything further to randomize the selected interests.
       interest1 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
       interest2 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
@@ -306,9 +280,10 @@ make_party <- function(index_of_current_iteration){
   party <- rbind(host,guests)
   party <<- party %>% 
     mutate(friend_id=NA) %>% 
-    mutate(satisfaction_baseline = 0) %>% # not simulated yet, CANNOT BE ZERO
+    mutate(satisfaction_baseline = sample(1:9, n_people, replace = TRUE, prob =  soba_prob)) %>% # not simulated yet, CANNOT BE ZERO
     mutate(satisfaction = 0) %>% 
-    mutate(moves = 0)#how their satisfaction if moved according
+    mutate(moves = 0) %>%  #how their satisfaction if moved according
+    mutate(decision_move = NA)
 
 }
 ```
@@ -332,11 +307,10 @@ make_prenetwork <- function(party_dataframe){
     ids_below_100 <- id_pool[id_pool <= 100]
     
     # If the current person needs to have more than 1 friend (more than just the host)
-    if (num_friends >= 1) {
+    if (num_friends > 0) {
       # Add all IDs above 100 as friends
-      friend_ids_above_100 <- ids_above_100
       remaining_friends <- num_friends - 1
-      
+
       # Randomly select additional friend IDs from below 100
       friend_ids_below_100 <- sample(ids_below_100, size = remaining_friends, replace = FALSE)
       
@@ -349,7 +323,7 @@ make_prenetwork <- function(party_dataframe){
 
     # Assign the selected friend IDs to the corresponding row in the dataframe
     party$friend_id[i] <- paste(friend_ids, collapse = ', ')
-    party <<- party #save to environmet
+    party <<- party #save to environment
   }
   
   #Add weight to all the friendships we just created
@@ -358,9 +332,9 @@ make_prenetwork <- function(party_dataframe){
     temp <- pre_network %>% filter(from==current_id)
      for (k in strsplit(party$friend_id[i], ", ")[[1]]){
        temp2 <- temp %>% filter(to==k)
-        temp2$weight <- temp2$weight + 16
-         temp <- temp %>% filter(to!=k)
-        temp <- rbind(temp2, temp)
+       temp2$weight <- temp2$weight + 30
+       temp <- temp %>% filter(to!=k)
+       temp <- rbind(temp2, temp)
     }
       pre_network <- pre_network %>% filter(from!=current_id)
       pre_network <- rbind(pre_network, temp)
@@ -376,10 +350,20 @@ make_prenetwork <- function(party_dataframe){
 **remember to load probabilities, table types and global variables beforehand**
 
 ```{r ABM}
+df_collected <- tibble(expand.grid(iteration=seq(iterations), # Create an empty list to store the data frames
+                                   table_type=seq(length(table_type)),
+                                   party=vector("list", length = iterations),
+                                   pre_network=vector("list", length = iterations),
+                                   post_network=vector("list", length = iterations)
+                                   )
+                       )
+
+
 start <- format(Sys.time(),"%HH %MM %SS")
 
-for (p in table_type){
-  
+
+for (p in 1:length(table_type)){
+
   table <- table_type[[p]]
   
   #make hosts
@@ -388,12 +372,10 @@ for (p in table_type){
   
   #repeat x times for each type of table/party
   for (i in 1:iterations){
-    df_collected$table_type[i] <- if (p == 1) "long" else if (p == 2) "round" else "square"
+    df_index <- which(df_collected$table_type== p & df_collected$iteration==i)
+    df_collected$table_type[df_index] <- if (p == 1) "long" else if (p == 2) "round" else "square"
     
-    print("starting ", i, " out of ", iterations, " iterations for ", df_collected$table_type[i], " type of table")
-    
-    #save iteration for future reference
-    df_collected$iteration[i] <- i
+    print(paste("starting ", i, " out of ", iterations, " iterations for ", df_collected$table_type[df_index], " table"))
     
     #make party
     party <- make_party(i)
@@ -402,7 +384,7 @@ for (p in table_type){
     network <- make_prenetwork(party)
     
     #save prenetwork
-    df_collected$pre_network[[i]] <- network
+    df_collected$pre_network[[df_index]] <- network
 
     
     #seat everybody to start off
@@ -415,10 +397,9 @@ for (p in table_type){
     table$ID[table$ID==0] <- sample(no_seat, size = length(no_seat), replace = FALSE)
     no_seat <- c()
     
-
     #start party
     for (tic in 1:tics){
-    print("starting ", tic, " out of ", tics, " tics ")
+    print(paste("starting ", tic, " out of ", tics, " tics "))
 
       for (person in party$ID){#do this for each person
         person_table <- which(table$ID==person)
@@ -430,13 +411,25 @@ for (p in table_type){
         con_indices <- as.numeric(strsplit(table$indices[person_table], ",\\s*")[[1]])
         #get the ID for the contact seats
         con_people <- c()
-        for (ci in con_indices){
-          con_person <- table[ci,3][[1]] #column 3 in all dataframes have to be ID
+        if (p == 1){
+          for (ci in con_indices){
+            con_person <- table[ci,3][[1]] #column 3 in all dataframes have to be ID
+            # Combine the friend IDs
+            con_people <- c(con_people, con_person)
+            #save in right format
+            con_people <- paste(con_people, collapse = ', ')
+            con_people <- as.numeric(strsplit(con_people, ",\\s*")[[1]])
+          }
+        }else if (p == 2 | p == 3){
+          for (ci in con_indices){
+          con_person_index <- which(table$new_seat==ci)
+          con_person <- table[con_person_index,3][[1]] #column 3 in all dataframes have to be ID
           # Combine the friend IDs
           con_people <- c(con_people, con_person)
           #save in right format
           con_people <- paste(con_people, collapse = ', ')
           con_people <- as.numeric(strsplit(con_people, ",\\s*")[[1]])
+          }
         }
         
         #make a dataframe with surrounding peoples variables
@@ -484,9 +477,9 @@ for (p in table_type){
         #evaluate friendshipstatus
         #add 1 weight from the parson wanting the relationsship
         for (cp in con_people){
-        rp_cp <- which(relation_possibilities$ID== cp)
+        rp_cp <- which(relation_possibilities$ID == cp)
         row_index <- which(network$from == person & network$to == cp)
-        network$weight[[row_index]] <- network$weight[[row_index]] + relation_possibilities$decision[rp_cp]
+        network$weight[[row_index]] <- network$weight[[row_index]] + relation_possibilities$decision[[rp_cp]]
         }
 
 
@@ -505,7 +498,7 @@ for (p in table_type){
         check_friends_nearby <- sum(sapply(con_people, function(x) any(prox_friends %in% x))) #number of true instances of there contact_people overlap with current friend network
         
       #evalute overall satisfaction
-          party[person_party, "satisfaction"][[1]] <- party[person_party, "satisfaction"][[1]] + check_friends_nearby #guests satisfaction is updated with the percentage of the people that they can sit next to actually are their friends (have a weight above 0) currently
+          party[person_party, "satisfaction"][[1]] <- party[person_party, "satisfaction_baseline"][[1]] + check_friends_nearby #guests satisfaction is updated with the percentage of the people that they can sit next to actually are their friends (have a weight above 0) currently
 
 
       #decide whether to move
@@ -514,41 +507,44 @@ for (p in table_type){
           #change
           change <- (party$satisfaction[person_party] - party$satisfaction_baseline[person_party]) / party$satisfaction_baseline[person_party]
         # Convert values to yes(1) or no(0) answer
-        decision_move <- ifelse(change > threshold, "no", "yes")
+        party[person_party, "decision_move"][[1]] <- ifelse(change > threshold, "no", "yes") #if the change is bigger than your threshold, than you are satisfied and stay seated decions_move ="no"
       #assuming person index = person, no_seat list exists
-        if (decision_move == 'yes'){
+        
+      } #go from individual to global level
+      
+      for (person in party$ID){#do this for each person
+        person_table <- which(table$ID==person)
+        person_party <- which(party$ID==person)
+        if (party[person_party, "decision_move"][[1]] == 'yes'){
           #add one to move count
           party[person_party, "moves"][[1]] <- party[person_party, "moves"][[1]] + 1
           #remove from their seat
-          table$ID[person_table] <- 0
+          table[person_table,"ID"][[1]] <- 0
           #add to no seat
           new_no_seat <- c(person)
           no_seat <- c(no_seat,new_no_seat)
         } #else stay seated
       }
-      #go from individual to global level
       
       #seat everyone
       table$ID[table$ID==0] <- sample(no_seat, size = length(no_seat), replace = FALSE)
       #clear out no_seat_list
       no_seat <- c()
-      #reset their satisfaction status back to baseline
-      party$satisfaction <-  party$satisfaction_baseline
-      
+
       
     } #after all tics
     
     #save postnetwork
-    df_collected$post_network[[i]] <- network
+    df_collected$post_network[[df_index]] <- network
     #save party
-    df_collected$party[[i]] <- party
+    df_collected$party[[df_index]] <- party
     
 
   }
   
 }
 #save workspace instead
-save.image("/ABM.RData")
+#save.image("ABM.RData")
 #write.csv(df_collected, file = "ABM_dataframe.csv")
 
 end <- format(Sys.time(),"%HH %MM %SS")
@@ -561,13 +557,9 @@ end_time <- strptime(end, "%HH %MM %SS")
 # Calculate time difference
 time_diff <- end_time - start_time
 
-# Extract hours, minutes, and seconds components
-hours <- time_diff$hour
-minutes <- time_diff$min
-seconds <- time_diff$sec
 
 # Print the time difference
-print("It took ", hours, "H ", minutes, "M ", seconds, "S", "to run")
+print(paste("It took ", time_diff, "minutes to run ", iterations, " iterations for ", length(table_type), "table types"))
 
 
 ```
