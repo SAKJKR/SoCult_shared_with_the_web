@@ -238,7 +238,6 @@ make_hosts <- function(number_of_iterations){
   hosts <<- tibble(
       ID = 101:max_hosts, #+100 to give the hosts identifyable ID's
       ie = sample(1:9, iterations, replace = TRUE, prob =  ie_prob),    #introvert / extrovert scale from 1-9, from Emma and Mie
-      n_household = sample(1:8,iterations, replace =TRUE, prob = hus_prob), #Number of people in your household
       n_closefriends = n_people, #friends with every one at the party
       #in the tryout markdown the randomization of interest was tested an only a few combination was shown twice, therefore we will not do anything further to randomize the selected interests.
       interest1 = sample(1:14, iterations, replace = TRUE, prob = int_prob),
@@ -266,7 +265,6 @@ make_party <- function(index_of_current_iteration){
   guests <- tibble(ID = 2:n_people-1, #Creating 63 people
                     ie = sample(1:9, n_people-1, replace = TRUE, prob =  ie_prob), #Introvert/extrovert values to people
   
-                    n_household = sample(1:8, n_people-1, replace =TRUE, prob = hus_prob), #Amount of people in household
                     n_closefriends = sample(1:10, n_people-1, replace = TRUE, prob = ven_prob[1:10]), #Amount of close friends (everyone has at least one friend (the host))
                    
                     interest1 = sample(host_interest,n_people-1,replace=TRUE), #choose a random interest that fits with the host
@@ -350,13 +348,7 @@ make_prenetwork <- function(party_dataframe){
 **remember to load probabilities, table types and global variables beforehand**
 
 ```{r ABM}
-df_collected <- tibble(expand.grid(iteration=seq(iterations), # Create an empty list to store the data frames
-                                   table_type=seq(length(table_type)),
-                                   party=vector("list", length = iterations),
-                                   pre_network=vector("list", length = iterations),
-                                   post_network=vector("list", length = iterations)
-                                   )
-                       )
+
 
 
 start <- format(Sys.time(),"%HH %MM %SS")
