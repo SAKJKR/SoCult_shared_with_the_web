@@ -53,11 +53,6 @@ fritid <- fritid %>%
 int_prob <- fritid$mean/100 #probability per fritidsinteresse i samme rækkefølge som i dataframet
 ```
 
-```{r saved probabilties}
-setwd('.')
-load("prob.RData") #not updated
-```
-
 ```{r saved probabilties written out}
 ie_prob <- c(0.05, 0.15, 0.15, 0.10, 0.10, 0.15, 0.15, 0.10, 0.05) #Introvert/extrovert prob on scale from 1 - 10. From Emma and Mie
 int_prob <- c(0.955, 0.955, 0.435, 0.645, 0.625, 0.545, 0.390, 0.325, 0.845, 0.750, 0.320, 0.355, 0.250, 0.215) #Interest probabilities. 14 different interests taken from Statistikbanken.
@@ -67,6 +62,10 @@ ven_prob <- c(0.01, 0.02, 0.05, 0.08, 0.12, 0.20, 0.10, 0.04, 0.06, 0.02, 0.30) 
 # Prepare ABM environment
 ## global variables
 ```{r global}
+#saved stuff
+setwd('.')
+load("prob+tables.RData") #not updated
+
 iterations <- 120    #How many times do we want to run the model? Starting off with making it run once
 n_people <- 64    #How many people are at a party?
 n_tables <- 8     #for round & square
@@ -74,13 +73,13 @@ n_seats <- 8      # tables
 indslag <- NA     #no added external stimuli yet
 boundent_move <- NA #no added restricted move time yet
 tics <- 20 #each tic is 30 minutes = 10 hours of parting
-df_collected <- tibble(expand.grid(iteration=seq(iterations), # Create an empty list to store the data frames
-                                   table_type=seq(length(table_type)),
-                                   party=vector("list", length = iterations),
-                                   pre_network=vector("list", length = iterations),
-                                   post_network=vector("list", length = iterations)
-                                   )
-                       )
+df_collected <- tibble(iteration = rep(seq(1,100),3),
+       table_type = rep(c(1,2,3),each=100),
+       party = rep(vector("list", length = 300)),
+                                   pre_network = rep(vector("list", length = 300)),
+                                   post_network = rep(vector("list", length = 300))
+
+       )
 
 ```
 
@@ -90,9 +89,6 @@ structure is table (1:8), seat (1:8), indices for contact seats (1:8) with 1:5 c
 
 They are saved in this workspace
 ```{r saved tables}
-setwd('.')
-load("tables.RData") #not updated
-
 #do this three times for each type of table/party
 table_type <- vector("list", length = 3)
 table_type[[1]] <- long_table
@@ -306,6 +302,7 @@ make_prenetwork <- function(party_dataframe){
     
     # If the current person needs to have more than 1 friend (more than just the host)
     if (num_friends > 0) {
+      friend_ids_above_100 <- ids_above_100
       # Add all IDs above 100 as friends
       remaining_friends <- num_friends - 1
 
