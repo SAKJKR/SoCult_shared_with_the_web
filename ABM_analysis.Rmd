@@ -96,7 +96,63 @@ install_github("ctross/STRAND")
 library(STRAND)
 ```
 
+```{r trying network with matrix in stead}
+strand_df <- strand_df %>% 
+  mutate(table_type=as.factor(table_type))
+temp <- df_collected[[3]][1][[1]]
+IDs <- temp$ID
 
+# Create an empty matrix with IDxID dimensions
+exposure <- matrix(0, nrow = length(IDs), ncol = length(IDs), dimnames = list(IDs, IDs))
+
+# Fill the matrix with the value 50
+exposure[] <- 50
+
+blocks = strand_df %>% select(table_type) %>% as.data.frame()
+individual=df_collected[[3]][1][[1]] %>% select(c("ie","satisfaction_baseline","interest1","interest2","interest3","moves","n_closefriends"))
+
+for (row in 1:nrow(strand_df)){
+  #pre
+  temp <- strand_df[[3]][row][[1]]
+  strand_df[[3]][row][[1]] <- temp %>%
+  pivot_wider(names_from = to, values_from = weight, values_fill = 0) %>%
+  column_to_rownames(var = "from") %>%
+  as.matrix()
+  #post
+  temp <- strand_df[[4]][row][[1]]
+  strand_df[[4]][row][[1]] <- temp %>%
+  pivot_wider(names_from = to, values_from = weight, values_fill = 0) %>%
+  column_to_rownames(var = "from") %>%
+  as.matrix()
+  
+}
+
+
+```
+
+```{r}
+matrix <- m1[,1:64]
+
+for (row in seq_len(nrow(matrix))) {
+    weight <- matrix[row, col]
+    
+    # Create a new entry in the data list
+    entry <- data.frame(from = row, to = col, weight = weight)
+    entry <- data.frame(from = as.numeric(rownames(matrix)[row]), to = as.numeric(colnames(matrix)[col]), weight = weight)
+    
+    # Append the entry to the data list
+    new_df <- rbind(new_df, entry)
+    }
+  }
+}
+new_df
+```
+
+
+
+
+
+## Mess
 
 ```{r}
 par(mfrow=c(1,2))
