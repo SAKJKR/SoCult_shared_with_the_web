@@ -217,7 +217,6 @@ for (i in 1:nrow(long_table)) {
     index <- c(index,indices[n])
   }
   long_table$indices[i] <- paste(index, collapse = ', ')
-
 }
 
 ```
@@ -345,7 +344,6 @@ make_prenetwork <- function(party_dataframe){
 **remember to load probabilities, table types and global variables beforehand**
 
 ```{r ABM}
-
 
 
 start <- format(Sys.time(),"%HH %MM %SS")
@@ -791,3 +789,4 @@ plot(post_igraph,
 
 #ask Emma how to make their cool network plot
 ```
+
