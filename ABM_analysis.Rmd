@@ -29,6 +29,8 @@ stat <- tibble(expand.grid(iteration = seq(1,100),
 stat <- stat %>% 
   mutate(
                            pre_post = rep(vector("list", length = 600)),
+                           pre_post_nohost = rep(vector("list", length = 600)),
+                           post_new_friends=rep(vector("list", length = 600)),
                            degree = NA,
                            degree_mean = NA,
                            degree_dist = NA,
@@ -57,16 +59,47 @@ for (row in 1:nrow(df_collected)){
   pre_igraph <- graph_from_data_frame(d = nodes_pre,
                         vertices = edges,
                         directed = TRUE)
+  pre_igraph_visual <- pre_igraph
+  E(pre_igraph_visual)$arrow.mode <- 0
+  E(pre_igraph_visual)$width <- edge_attr(pre_igraph_visual)$weight/15
+  E(pre_igraph_visual)$weight <- edge_attr(pre_igraph_visual)$weight^8
+  V(pre_igraph_visual)$size <- degree(pre_igraph_visual, mode="all")/2
   post_igraph <-
   graph_from_data_frame(d = nodes_post,
                         vertices = edges,
                         directed = TRUE)
+  post_igraph_visual <- post_igraph
+  E(post_igraph_visual)$arrow.mode <- 0
+  E(post_igraph_visual)$width <- edge_attr(post_igraph_visual)$weight/15
+  E(post_igraph_visual)$weight <- edge_attr(post_igraph_visual)$weight^8
+  V(post_igraph_visual)$size <- degree(post_igraph_visual, mode="all")/2
   #save
   pre_index <- which(stat$iteration == df_collected$iteration[row] & stat$table == df_collected$table_type[row])[1]
   post_index <- which(stat$iteration == df_collected$iteration[row] & stat$table == df_collected$table_type[row])[2]
   #network graphs
-  stat$pre_post[[pre_index]] <- pre_igraph#as_long_data_frame(pre_igraph, mode="all"))
-  stat$pre_post[[post_index]] <- post_igraph#as_long_data_frame(degree(post_igraph, mode="all"))
+  stat$pre_post[[pre_index]] <- pre_igraph_visual#as_long_data_frame(pre_igraph, mode="all"))
+  stat$pre_post[[post_index]] <- post_igraph_visual#as_long_data_frame(degree(post_igraph, mode="all"))
+  nodes_pre <- df_collected[[4]][[row]] %>% filter(weight!=0, from<100, to<100)
+  nodes_post <- df_collected[[5]][[row]] %>% filter(weight!=0,  from<100, to<100)
+  pre_igraph_nohost <- graph_from_data_frame(d = nodes_pre,
+                        vertices = edges[edges<100],
+                        directed = TRUE)
+  E(pre_igraph_nohost)$arrow.mode <- 0
+  E(pre_igraph_nohost)$width <- edge_attr(pre_igraph_nohost)$weight/15
+  E(pre_igraph_nohost)$weight <- edge_attr(pre_igraph_nohost)$weight^8
+  V(pre_igraph_nohost)$size <- degree(pre_igraph_nohost, mode="all")/2
+  post_igraph_nohost <-
+  graph_from_data_frame(d = nodes_post,
+                        vertices = edges[edges<100],
+                        directed = TRUE)
+  E(post_igraph_nohost)$arrow.mode <- 0
+  E(post_igraph_nohost)$width <- edge_attr(post_igraph_nohost)$weight/15
+  E(post_igraph_nohost)$weight <- edge_attr(post_igraph_nohost)$weight^8
+  V(post_igraph_nohost)$size <- degree(post_igraph_nohost, mode="all")/2
+  stat$pre_post_nohost[[pre_index]] <- post_igraph_nohost#as_long_data_frame(pre_igraph, mode="all"))
+  stat$pre_post_nohost[[post_index]] <- post_igraph_nohost #as_long_data_frame(degree(post_igraph, mode="all"))
+  E(post_igraph_visual)$color <- ifelse(E(post_igraph_visual) %in% E(pre_igraph_visual), "green", "red")
+  stat$post_new_friends[[post_index]] <- post_igraph_visual
   #make degree
   stat$degree[[pre_index]] <- as.data.frame(degree(pre_igraph, mode="all"))
   stat$degree[[post_index]] <- as.data.frame(degree(post_igraph, mode="all"))
@@ -88,6 +121,25 @@ for (row in 1:nrow(df_collected)){
 }
 
 ```
+
+```{r}
+## Plotting it all
+for (i in 1:100){
+round_tables <- stat %>% filter(table=="square", network=="post")
+plot(round_tables$pre_post[[i]],
+     layout = layout_nicely, # Explore layouts!
+     edge.arrow.size = 0.2)
+}
+
+for (i in 1:3){
+iteration1 <- stat %>% filter(iteration==1, network=="post")
+plot(iteration1$post_new_friends[[i]],
+     layout = layout_nicely, # Explore layouts!
+     edge.arrow.size = 0.2,
+     main=paste("Network:", iteration1$network[i], ", Table:", iteration1$table[i]))
+}
+```
+
 
 #Analyse
 ```{r STRAND}
