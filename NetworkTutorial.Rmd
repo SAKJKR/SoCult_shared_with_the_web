@@ -1,0 +1,519 @@
+---
+title: "NetworkPracticalAssignment"
+author: "RF"
+date: "4/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+## Table of content
+
+In the first week we collected data about the social network within the class. Now that you have gone through most of the course and the readings for the network module, we can finally properly analyse your data.
+
+The question that we want to answer (perhaps a bit naive) is: what distinguishes a newly formed class (intro week), a blossoming one (end of first semester) and a well established one (start of 4th semester)?
+
+
+There's 3 parts:
+1. Visualization
+2. Quantification 
+3. Community detection
+
+First we load the data
+
+```{r Load data}
+
+pacman::p_load(tidyverse,
+               here,
+               network,
+               igraph,
+               ggraph,
+               tidygraph,
+               patchwork,
+               bootnet)
+
+long_1_post_edges <- df_collected[[5]][[1]] %>% filter(weight >0) 
+
+long_1_post_nodes <- data.frame(ID=unique(long_1_post_edges$from))
+
+long_1_pre_edges <- df_collected[[4]][[1]] %>% filter(weight > 0)
+
+long_1_pre_nodes <- data.frame(ID=unique(long_1_pre_edges$from)) 
+
+```
+
+
+# Visualisations
+
+## Normal plots
+```{r prenetwork}
+
+# Create the initial graph 
+pre_graph <-
+  graph_from_data_frame(d = long_1_pre_edges,
+                        vertices = long_1_pre_nodes,
+                        directed = TRUE)
+
+
+pre_graph <- simplify(pre_graph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+# Make the arrows disappear
+
+E(pre_graph)$arrow.mode <- 0
+
+# V = vertices
+# E = edges
+
+V(pre_graph)$frame.color <- "white"
+V(pre_graph)$color <- "orange"
+E(pre_graph)$width <- edge_attr(pre_graph)$weight/15
+E(pre_graph)$weight <- edge_attr(pre_graph)$weight^8
+
+
+# Calculate the degree =how many links are entering a specific node
+
+deg <- degree(pre_graph, mode="all")
+
+# Make the Size of the vertex proportional to the degree
+
+V(pre_graph)$size <- deg/2
+
+
+# plot(graph,
+#      layout = layout_on_sphere, # Explore layouts!
+#      edge.arrow.size = 0.2)
+
+
+```
+
+```{r post network}
+# Create the initial graph 
+post_graph <-
+  graph_from_data_frame(d = long_1_post_edges,
+                        vertices = long_1_post_nodes,
+                        directed = TRUE)
+
+
+post_graph <- simplify(post_graph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+# Make the arrows disappear
+
+E(post_graph)$arrow.mode <- 0 
+
+
+# V = vertices
+# E = edges
+
+V(post_graph)$frame.color <- "white"
+V(post_graph)$color <- "orange"
+E(post_graph)$width <- edge_attr(post_graph)$weight/15
+E(post_graph)$weight <- edge_attr(post_graph)$weight^8
+
+
+# Calculate the degree =how many links are entering a specific node
+
+deg <- degree(post_graph, mode="all")
+
+# Make the Size of the vertex proportional to the degree
+
+V(post_graph)$size <- deg/2
+
+```
+
+
+
+## Looking for bidirectionality
+```{r bidirectional edges pre}
+# Create the initial graph
+pre_graph <- graph_from_data_frame(d = long_1_pre_edges,
+                               vertices = long_1_pre_nodes,
+                               directed = T)  
+
+pre_graph <- simplify(pre_graph,
+                  remove.multiple = TRUE,
+                  remove.loops = TRUE,
+                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+# Make the arrows disappear
+E(pre_graph)$arrow.mode <- 0
+
+# Identify bidirectional edges
+bidirectional_edges <- E(pre_graph)[which_mutual(pre_graph)]
+
+
+# Set other edge properties
+E(pre_graph)$color <- ifelse(E(pre_graph) %in% bidirectional_edges, "green", "red")
+
+# Set vertex properties
+V(pre_graph)$frame.color <- "white"
+V(pre_graph)$color <- "orange"
+E(post_graph)$width <- edge_attr(post_graph)$weight/15
+
+# Calculate the degree = how many links are entering/leaving a specific node
+deg <- degree(pre_graph, mode = "all")
+
+# Make the size of the vertex proportional to the degree
+V(pre_graph)$size <- deg/2
+
+```
+
+
+```{r bidirectional edges post}
+# Create the initial graph 
+post_graph <-
+  graph_from_data_frame(d = long_1_post_edges,
+                        vertices = long_1_post_nodes,
+                        directed = TRUE)
+
+
+post_graph <- simplify(post_graph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+# Make the arrows disappear
+
+E(post_graph)$arrow.mode <- 0 
+
+
+# V = vertices
+# E = edges
+
+# Identify bidirectional edges
+bidirectional_edges <- E(post_graph)[which_mutual(post_graph)]
+
+
+# Set other edge properties
+E(post_graph)$color <- ifelse(E(post_graph) %in% bidirectional_edges, "green", "red")
+
+V(post_graph)$frame.color <- "white"
+V(post_graph)$color <- "orange"
+E(post_graph)$width <- edge_attr(post_graph)$weight/15
+
+
+
+# Calculate the degree =how many links are entering a specific node
+
+deg <- degree(post_graph, mode="all")
+
+# Make the Size of the vertex proportional to the degree
+
+V(post_graph)$size <- deg/2
+```
+
+## Without the host
+```{r wo. host prenetwork}
+
+long_1_pre_edges_nohost <- long_1_pre_edges %>% filter(from<100, to<100)
+long_1_pre_nodes_nohost <- long_1_pre_nodes %>% filter(ID<100)
+
+# Create the initial graph 
+pre_graph <-
+  graph_from_data_frame(d = long_1_pre_edges_nohost,
+                        vertices = long_1_pre_nodes_nohost,
+                        directed = TRUE)
+
+
+pre_graph <- simplify(pre_graph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+# Make the arrows disappear
+
+E(pre_graph)$arrow.mode <- 0
+
+# V = vertices
+# E = edges
+
+V(pre_graph)$frame.color <- "white"
+V(pre_graph)$color <- "orange"
+E(pre_graph)$width <- edge_attr(pre_graph)$weight/15
+
+
+# Calculate the degree =how many links are entering a specific node
+
+deg <- degree(pre_graph, mode="all")
+
+# Make the Size of the vertex proportional to the degree
+
+V(pre_graph)$size <- deg/2
+
+
+# plot(graph,
+#      layout = layout_on_sphere, # Explore layouts!
+#      edge.arrow.size = 0.2)
+
+
+```
+
+```{r wo host post network}
+long_1_post_edges_nohost <- long_1_post_edges %>% filter(from<100, to<100)
+long_1_post_nodes_nohost <- long_1_post_nodes %>% filter(ID<100)
+post_graph <-
+  graph_from_data_frame(d = long_1_post_edges_nohost,
+                        vertices = long_1_post_nodes_nohost,
+                        directed = TRUE)
+
+
+post_graph <- simplify(post_graph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+# Make the arrows disappear
+
+E(post_graph)$arrow.mode <- 0 
+
+
+# V = vertices
+# E = edges
+
+V(post_graph)$frame.color <- "white"
+V(post_graph)$color <- "orange"
+E(post_graph)$width <- edge_attr(post_graph)$weight/15
+
+
+
+# Calculate the degree =how many links are entering a specific node
+
+deg <- degree(post_graph, mode="all")
+
+# Make the Size of the vertex proportional to the degree
+
+V(post_graph)$size <- deg/2
+
+```
+
+## Edges that where there in pre
+
+```{r bidirectional edges post}
+# Create the initial graph 
+post_graph <-
+  graph_from_data_frame(d = long_1_post_edges,
+                        vertices = long_1_post_nodes,
+                        directed = TRUE)
+
+
+post_graph <- simplify(post_graph, 
+                                  remove.multiple = TRUE, 
+                                  remove.loops = TRUE,
+                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
+
+
+
+# Make the arrows disappear
+
+E(post_graph)$arrow.mode <- 0 
+
+
+# V = vertices
+# E = edges
+
+# Identify bidirectional edges
+pre_edges <- E(pre_graph)
+
+
+# Set other edge properties
+E(post_graph)$color <- ifelse(E(post_graph) %in% pre_edges, "green", "red")
+
+V(post_graph)$frame.color <- "white"
+V(post_graph)$color <- "orange"
+E(post_graph)$width <- edge_attr(post_graph)$weight/15
+
+
+
+# Calculate the degree =how many links are entering a specific node
+
+deg <- degree(post_graph, mode="all")
+
+# Make the Size of the vertex proportional to the degree
+
+V(post_graph)$size <- deg/2
+```
+
+```{r plotting}
+plot(pre_graph,
+     layout = layout_nicely, # Explore layouts!
+     edge.arrow.size = 0.2)
+
+
+plot(post_graph,
+     layout = layout_nicely, # Explore layouts!
+     edge.arrow.size = 0.2)
+```
+
+
+
+```{r}
+# Community detection
+wc1 <- cluster_walktrap(post_graph)
+wc1 <- cluster_infomap(as.undirected(post_graph))
+modularity(wc1)
+membership(wc1)
+
+plot(wc1, post_graph)
+
+
+
+# Community detection (by optimizing modularity over partitions):
+clp <- cluster_louvain(as.undirected(post_graph))
+plot(clp, post_graph)
+
+clp
+
+#clp <- cluster_optimal(CogSci19_igraph)
+#plot(clp, CogSci19_igraph)
+
+#par(mfrow=c(1,1))
+```
+
+
+
+
+```{r}
+# GGPLOT LIKE ALTERNATIVE
+
+graph_tidy <-
+  tbl_graph(nodes = long_1_pre_nodes,
+            edges = long_1_pre_edges,
+            directed = TRUE)
+ggraph(graph_tidy) + 
+  geom_edge_link() + 
+  geom_node_point() + 
+  theme_graph()
+
+
+```
+
+# Generate plot for the other semesters
+
+
+```
+
+
+#Plot all together
+
+```{r}
+
+par(mfrow=c(1,3))
+par(mar=c(0,0,0,0))
+
+plot(CogSci_2019_n0_igraph,
+     layout = layout_on_sphere, # Explore layouts!
+     edge.arrow.size = 0.2)
+
+plot(CogSci_2019_n1_igraph,
+     layout = layout_on_sphere, # Explore layouts!
+     edge.arrow.size = 0.2)
+
+plot(CogSci_2019_n4_igraph,
+     layout = layout_on_sphere, # Explore layouts!
+     edge.arrow.size = 0.2)
+
+
+plot(CogSci_2019_n0_igraph,
+     layout = layout_nicely, # Explore layouts!
+     edge.arrow.size = 0.2)
+
+
+plot(CogSci_2019_n1_igraph,
+     layout = layout_nicely, # Explore layouts!
+     edge.arrow.size = 0.2)
+
+plot(CogSci_2019_n4_igraph,
+     layout = layout_nicely, # Explore layouts!
+     edge.arrow.size = 0.2)
+```
+
+3. Quantification
+Q: Reflect on which aspects of networks could be interesting given your specific question. Discuss what you learn from these (and potentially other) metrics. Figure out if there are other important metrics we're missing given the nature of classroom social networks.
+
+
+```{r}
+
+degree_distribution(CogSci_2019_n0_igraph)
+mean(degree_distribution(CogSci_2019_n0_igraph))
+mean(degree_distribution(CogSci_2019_n1_igraph))
+mean(degree_distribution(CogSci_2019_n4_igraph))
+
+# Degree
+rethinking::dens(degree_distribution(CogSci_2019_n0_igraph))
+rethinking::dens(degree_distribution(CogSci_2019_n1_igraph))
+rethinking::dens(degree_distribution(CogSci_2019_n4_igraph))
+
+# Average path length
+mean_distance(CogSci_2019_n0_igraph, directed = TRUE, unconnected = TRUE)
+mean_distance(CogSci_2019_n1_igraph, directed = TRUE, unconnected = TRUE)
+mean_distance(CogSci_2019_n4_igraph, directed = TRUE, unconnected = TRUE)
+## UNCONNECTED???
+
+
+# Clustering coefficient
+transitivity(CogSci_2019_n0_igraph)
+transitivity(CogSci_2019_n1_igraph)
+transitivity(CogSci_2019_n4_igraph)
+
+## Centrality
+
+mean(betweenness(CogSci_2019_n0_igraph))
+rethinking::dens(betweenness(CogSci_2019_n0_igraph))
+mean(betweenness(CogSci_2019_n1_igraph))
+rethinking::dens(betweenness(CogSci_2019_n1_igraph))
+mean(betweenness(CogSci_2019_n4_igraph))
+rethinking::dens(betweenness(CogSci_2019_n4_igraph))
+
+mean(eigen_centrality(CogSci_2019_n0_igraph)$vector)
+mean(eigen_centrality(CogSci_2019_n1_igraph)$vector)
+mean(eigen_centrality(CogSci_2019_n4_igraph)$vector)
+
+
+```
+
+
+# 4 Community Detection
+
+Q: discuss the notion of community in a network and how it relates to the nature of classroom networks. Can you identify the communities in your class (given the plot)? If you were to assess the network differently (see first point), e.g. friendship vs. learning from, how would you imagine the communities to change?
+
+```{r}
+# Community detection
+wc1 <- cluster_walktrap(post_graph)
+wc1 <- cluster_infomap(as.undirected(post_graph))
+modularity(wc1)
+membership(wc1)
+
+plot(wc1, post_graph)
+
+
+
+# Community detection (by optimizing modularity over partitions):
+clp <- cluster_louvain(as.undirected(post_graph))
+plot(clp, post_graph)
+
+
+#clp <- cluster_optimal(CogSci19_igraph)
+#plot(clp, CogSci19_igraph)
+
+#par(mfrow=c(1,1))
+```
+
