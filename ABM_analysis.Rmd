@@ -182,7 +182,92 @@ for (row in 1:nrow(ttest)){
    ttest$eigen_cen[[row]] <- t$p.value
 
 }
+```
 
+
+```{r long_square}
+long_square <-  tibble(expand.grid(iteration = seq(1,100),
+                           table = "long_square",
+                           degree = NA,
+                           transitivity = NA,
+                           between = NA,
+                           eigen_cen = NA,
+                           degree_dis = NA
+                           )
+                )
+
+
+for (row in 1:nrow(long_square)){
+  long_index <- which(stat$iteration == long_square$iteration[row] & stat$table == "long" & stat$network=="post")
+  square_index <- which(stat$iteration == long_square$iteration[row] & stat$table == "square" & stat$network == "post")
+  
+    #degree
+  degpre <- stat$degree[long_index][[1]]$`degree(post_igraph, mode = "all")`
+  degpos <- stat$degree[square_index][[1]]$`degree(post_igraph, mode = "all")`
+  t <- t.test(degpos,degpre)
+   long_square$degree[[row]] <- t$p.value
+   
+  #degree_distribution
+  degpre <- stat$degree_dist[long_index][[1]]$`degree_distribution(post_igraph)`
+  degpos <- stat$degree_dist[square_index][[1]]$`degree_distribution(post_igraph)`
+  t <- t.test(degpos,degpre)
+   long_square$degree_dis[[row]] <- t$p.value
+   
+  #transitivity
+  degpre <- stat$transitivity[long_index][[1]]$`transitivity(post_igraph, type = "local")`
+  degpos <- stat$transitivity[square_index][[1]]$`transitivity(post_igraph, type = "local")`
+  t <- t.test(degpos,degpre)
+   long_square$transitivity[[row]] <- t$p.value
+
+  #betweenness
+  degpre <- stat$between[long_index][[1]]$`betweenness(post_igraph)`
+  degpos <- stat$between[square_index][[1]]$`betweenness(post_igraph)`
+  t <- t.test(degpos,degpre)
+   long_square$between[[row]] <- t$p.value
+   
+  #eigen_centrality
+  degpre <- stat$eigen_cen[long_index][[1]]$`eigen_centrality(post_igraph)$vector`
+  degpos <- stat$eigen_cen[square_index][[1]]$`eigen_centrality(post_igraph)$vector`
+  t <- t.test(degpos,degpre)
+   long_square$eigen_cen[[row]] <- t$p.value
+
+}
+
+
+sum_long_square <- long_square %>% 
+  mutate(degree=as.numeric(round(degree,digits=3))) %>% 
+  mutate(transitivity=as.numeric(round(transitivity,digits=3))) %>% 
+  mutate(between=as.numeric(round(between,digits=3))) %>% 
+  mutate(eigen_cen=as.numeric(round(eigen_cen,digits=3))) %>% 
+  mutate(degree_dis=as.numeric(round(degree_dis,digits = 3)))
+
+
+# Function to count occurrences below 0.05
+count_below_threshold <- function(column) {
+  sum(column < 0.05)
+}
+
+# Apply the function to each column and create the table
+r <- sum_long_square[1:100,]
+r <- apply(r[, cols.num], 2, count_below_threshold)
+
+
+degree <- c(r[1][[1]])
+degree_dis <- c(r[5][[1]])
+transitivity <- c(r[2][[1]])
+between <- c(r[3][[1]])
+eigen_cen <- c(r[4][[1]])
+
+table <- c("long_square")
+
+results_long_square <- tibble(table = table,degree=degree,degree_distribution=degree_dis,transitivity=transitivity,eigen_centrality=eigen_cen,betweenness=between)
+
+
+
+```
+
+
+```{r pre to post network}
 ttest <- ttest %>% 
   mutate(table=as.factor(table))
 
@@ -219,354 +304,487 @@ table <- c("long","square","round")
 
 results <- tibble(table = table,degree=degree,degree_distribution=degree_dis,transitivity=transitivity,eigen_centrality=eigen_cen,betweenness=between)
 
-tapply(sum_ttest$table, count_below_threshold(cols.num))
-result <- tapply(sum_ttest$degree < 0.05, sum_ttest$Type, count_below_threshold)
-
-
-strand_df[[5]][[1]][strand_df[[5]][[1]] > 0] <- 1
-
-
-
-# Clustering coefficient
-
-transitivity(network_cleaned)
-transitivity(CogSci_2019_n1_igraph)
-
-Transitivity_ABM <- transitivity(network_cleaned, type = 'local')
-Transitivity_2019 <-transitivity(CogSci_2019_n1_igraph, type = 'local')
-
-t.test(Transitivity_ABM, Transitivity_2019) 
-## Centrality
-
-mean(betweenness(network_cleaned))
-rethinking::dens(betweenness(network_cleaned))+
-  title("ABM Betweenness Centrality")
-mean(betweenness(CogSci_2019_n1_igraph))
-rethinking::dens(betweenness(CogSci_2019_n1_igraph))+
-  title("2019 Data Betweenness Centrality")
-
-Betweenness_ABM <- betweenness(network_cleaned)
-Betweenness_2019 <- betweenness(CogSci_2019_n1_igraph)
-
-t.test(Betweenness_ABM, Betweenness_2019) 
-
-
-mean(eigen_centrality(network_cleaned)$vector)
-mean(eigen_centrality(CogSci_2019_n1_igraph)$vector)
-
-Eigen_ABM <- eigen_centrality(network_cleaned)$vector
-Eigen_2019 <- eigen_centrality(CogSci_2019_n1_igraph)$vector
-
-t.test(Eigen_ABM, Eigen_2019)
-
-
 ```
 
 
-## 60 Days : Joint and Big
-
-```{r}
-#Comparing only small and big events for 60 days
-
-network_cleaned_joint60 <- network_cleaned_joint_60
-network_cleaned_big60 <- network_cleaned_big_60
-
-par(mfrow=c(1,2))
-
-mean(degree(network_cleaned_joint60))
-mean(degree(network_cleaned_big60))
-
-J60_D <- degree(network_cleaned_joint60)
-BE60_D <- degree(network_cleaned_big60) 
-
-t.test(BE60_D, J60_D)
-
-mean(degree_distribution(network_cleaned_joint60))
-mean(degree_distribution(network_cleaned_big60))
-
-DegreeDistr_J60 <- degree_distribution(network_cleaned_joint60)
-DegreeDistr_BE60 <- degree_distribution(network_cleaned_big60)
-
-t.test(DegreeDistr_ABM, DegreeDistr_2019)
-
-# Degree
-
-rethinking::dens(degree_distribution(network_cleaned_joint60))+
-  title("Small Event Degree Distribution 60")
-rethinking::dens(degree_distribution(network_cleaned_big60))+
-  title("Big Event Degree Distribution 60")
+```{r long_round}
+long_round <-  tibble(expand.grid(iteration = seq(1,100),
+                           table = "long_round",
+                           degree = NA,
+                           transitivity = NA,
+                           between = NA,
+                           eigen_cen = NA,
+                           degree_dis = NA
+                           )
+                )
 
 
-
-# Average path length
-
-mean_distance(network_cleaned_joint60, directed = TRUE, unconnected = TRUE)
-mean_distance(network_cleaned_big60, directed = TRUE, unconnected = TRUE)
-
-# Clustering coefficient
-
-transitivity(network_cleaned_joint60)
-transitivity(network_cleaned_big60)
-
-Transitivity_J60 <- transitivity(network_cleaned_joint60, type = 'local')
-Transitivity_BE60 <-transitivity(network_cleaned_big60, type = 'local')
-
-t.test(Transitivity_BE60, Transitivity_J60) 
-## Centrality
-
-mean(betweenness(network_cleaned_joint60))
-rethinking::dens(betweenness(network_cleaned_joint60))+
-  title("Small Event 60 Betweenness Centrality")
-mean(betweenness(network_cleaned_big60))
-rethinking::dens(betweenness(network_cleaned_big60))+
-  title("Big Event 60 Betweenness Centrality")
-
-Betweenness_J60 <- betweenness(network_cleaned_joint60)
-Betweenness_BE60 <- betweenness(network_cleaned_big60)
-
-t.test(Betweenness_BE60, Betweenness_J60) 
-
-
-mean(eigen_centrality(network_cleaned_joint60)$vector)
-mean(eigen_centrality(network_cleaned_big60)$vector)
-
-Eigen_J60 <- eigen_centrality(network_cleaned_joint60)$vector
-Eigen_BE60 <- eigen_centrality(network_cleaned_big60)$vector
-
-t.test(Eigen_BE60, Eigen_J60)
-
-
-```
-
-#60 days : Small and Big
-```{r}
-#Comparing only small and big events for 60 days
-
-network_cleaned_small60 <- network_cleaned_small_60
-network_cleaned_big60 <- network_cleaned_big_60
-
-par(mfrow=c(1,2))
-
-mean(degree(network_cleaned_small60))
-mean(degree(network_cleaned_big60))
-
-SE60_D <- degree(network_cleaned_small60)
-BE60_D <- degree(network_cleaned_big60) 
-
-t.test(BE60_D, SE60_D)
-
-mean(degree_distribution(network_cleaned_small60))
-mean(degree_distribution(network_cleaned_big60))
-
-DegreeDistr_SE60 <- degree_distribution(network_cleaned_small60)
-DegreeDistr_BE60 <- degree_distribution(network_cleaned_big60)
-
-#t.test(DegreeDistr_ABM, DegreeDistr_2019)
-
-# Degree
-
-rethinking::dens(degree_distribution(network_cleaned_small60))+
-  title("Small Event Degree Distribution 60")
-rethinking::dens(degree_distribution(network_cleaned_big60))+
-  title("Big Event Degree Distribution 60")
-
-
-
-# Average path length
-
-mean_distance(network_cleaned_small60, directed = TRUE, unconnected = TRUE)
-mean_distance(network_cleaned_big60, directed = TRUE, unconnected = TRUE)
-
-# Clustering coefficient
-
-transitivity(network_cleaned_small60)
-transitivity(network_cleaned_big60)
-
-Transitivity_SE60 <- transitivity(network_cleaned_small60, type = 'local')
-Transitivity_BE60 <-transitivity(network_cleaned_big60, type = 'local')
-
-t.test(Transitivity_BE60, Transitivity_SE60) 
-## Centrality
-
-mean(betweenness(network_cleaned_small60))
-rethinking::dens(betweenness(network_cleaned_small60))+
-  title("Small Event 60 Betweenness Centrality")
-mean(betweenness(network_cleaned_big60))
-rethinking::dens(betweenness(network_cleaned_big60))+
-  title("Big Event 60 Betweenness Centrality")
-
-Betweenness_SE60 <- betweenness(network_cleaned_small60)
-Betweenness_BE60 <- betweenness(network_cleaned_big60)
-
-t.test(Betweenness_BE60, Betweenness_SE60) 
-
-
-mean(eigen_centrality(network_cleaned_small60)$vector)
-mean(eigen_centrality(network_cleaned_big60)$vector)
-
-Eigen_SE60 <- eigen_centrality(network_cleaned_small60)$vector
-Eigen_BE60 <- eigen_centrality(network_cleaned_big60)$vector
-
-t.test(Eigen_BE60, Eigen_SE60)
-
-
-```
-
-
-
-## 120 Days : Joint and Big
-
-```{r}
-ttest <- stat %>% 
+for (row in 1:nrow(long_round)){
+  long_index <- which(stat$iteration == long_round$iteration[row] & stat$table == "long" & stat$network=="post")
+  square_index <- which(stat$iteration == long_round$iteration[row] & stat$table == "round" & stat$network == "post")
   
-#Comparing only small and big events for 60 days
+    #degree
+  degpre <- stat$degree[long_index][[1]]$`degree(post_igraph, mode = "all")`
+  degpos <- stat$degree[square_index][[1]]$`degree(post_igraph, mode = "all")`
+  t <- t.test(degpos,degpre)
+   long_round$degree[[row]] <- t$p.value
+   
+  #degree_distribution
+  degpre <- stat$degree_dist[long_index][[1]]$`degree_distribution(post_igraph)`
+  degpos <- stat$degree_dist[square_index][[1]]$`degree_distribution(post_igraph)`
+  t <- t.test(degpos,degpre)
+   long_round$degree_dis[[row]] <- t$p.value
+   
+  #transitivity
+  degpre <- stat$transitivity[long_index][[1]]$`transitivity(post_igraph, type = "local")`
+  degpos <- stat$transitivity[square_index][[1]]$`transitivity(post_igraph, type = "local")`
+  t <- t.test(degpos,degpre)
+   long_round$transitivity[[row]] <- t$p.value
 
-network_cleaned_joint120 <- network_cleaned_joint_120
-network_cleaned_big120 <- network_cleaned_big_120
+  #betweenness
+  degpre <- stat$between[long_index][[1]]$`betweenness(post_igraph)`
+  degpos <- stat$between[square_index][[1]]$`betweenness(post_igraph)`
+  t <- t.test(degpos,degpre)
+   long_round$between[[row]] <- t$p.value
+   
+  #eigen_centrality
+  degpre <- stat$eigen_cen[long_index][[1]]$`eigen_centrality(post_igraph)$vector`
+  degpos <- stat$eigen_cen[square_index][[1]]$`eigen_centrality(post_igraph)$vector`
+  t <- t.test(degpos,degpre)
+   long_round$eigen_cen[[row]] <- t$p.value
 
-par(mfrow=c(1,2))
-
-mean(degree(network_cleaned_joint120))
-mean(degree(network_cleaned_big120))
-
-J120_D <- degree(network_cleaned_joint120)
-BE120_D <- degree(network_cleaned_big120) 
-
-t.test(BE120_D, J120_D)
-
-mean(degree_distribution(network_cleaned_joint120))
-mean(degree_distribution(network_cleaned_big120))
-
-DegreeDistr_J60 <- degree_distribution(network_cleaned_joint120)
-DegreeDistr_BE60 <- degree_distribution(network_cleaned_big120)
-
-t.test(DegreeDistr_BE60, DegreeDistr_J60)
-
-# Degree
-
-rethinking::dens(degree_distribution(network_cleaned_joint120))+
-  title("Small Event Degree Distribution 120")
-rethinking::dens(degree_distribution(network_cleaned_big120))+
-  title("Big Event Degree Distribution 120")
-
-
-
-# Average path length
-
-mean_distance(network_cleaned_joint120, directed = TRUE, unconnected = TRUE)
-mean_distance(network_cleaned_big120, directed = TRUE, unconnected = TRUE)
-
-# Clustering coefficient
-
-transitivity(network_cleaned_joint120)
-transitivity(network_cleaned_big120)
-
-Transitivity_J120 <- transitivity(network_cleaned_joint120, type = 'local')
-Transitivity_BE120 <-transitivity(network_cleaned_big120, type = 'local')
-
-t.test(Transitivity_BE120, Transitivity_J120) 
-## Centrality
-
-mean(betweenness(network_cleaned_joint120))
-rethinking::dens(betweenness(network_cleaned_joint120))+
-  title("Small Event 120 Betweenness Centrality")
-mean(betweenness(network_cleaned_big120))
-rethinking::dens(betweenness(network_cleaned_big120))+
-  title("Big Event 120 Betweenness Centrality")
-
-Betweenness_J120 <- betweenness(network_cleaned_joint120)
-Betweenness_BE120 <- betweenness(network_cleaned_big120)
-
-t.test(Betweenness_BE120, Betweenness_J120) 
+}
 
 
-mean(eigen_centrality(network_cleaned_joint120)$vector)
-mean(eigen_centrality(network_cleaned_big120)$vector)
+sum_long_round <- long_round %>% 
+  mutate(degree=as.numeric(round(degree,digits=3))) %>% 
+  mutate(transitivity=as.numeric(round(transitivity,digits=3))) %>% 
+  mutate(between=as.numeric(round(between,digits=3))) %>% 
+  mutate(eigen_cen=as.numeric(round(eigen_cen,digits=3))) %>% 
+  mutate(degree_dis=as.numeric(round(degree_dis,digits = 3)))
 
-Eigen_J120 <- eigen_centrality(network_cleaned_joint120)$vector
-Eigen_BE120 <- eigen_centrality(network_cleaned_big120)$vector
 
-t.test(Eigen_BE120, Eigen_J120)
+# Function to count occurrences below 0.05
+count_below_threshold <- function(column) {
+  sum(column < 0.05)
+}
+
+# Apply the function to each column and create the table
+r <- sum_long_round[1:100,]
+r <- apply(r[, cols.num], 2, count_below_threshold)
+
+
+degree <- c(r[1][[1]])
+degree_dis <- c(r[5][[1]])
+transitivity <- c(r[2][[1]])
+between <- c(r[3][[1]])
+eigen_cen <- c(r[4][[1]])
+
+table <- c("long_round")
+
+results_long_round <- tibble(table = table,degree=degree,degree_distribution=degree_dis,transitivity=transitivity,eigen_centrality=eigen_cen,betweenness=between)
+
 
 
 ```
-#120 days
+
+```{r square_round}
+square_round <-  tibble(expand.grid(iteration = seq(1,100),
+                           table = "square_round",
+                           degree = NA,
+                           transitivity = NA,
+                           between = NA,
+                           eigen_cen = NA,
+                           degree_dis = NA
+                           )
+                )
 
 
+for (row in 1:nrow(square_round)){
+  long_index <- which(stat$iteration == square_round$iteration[row] & stat$table == "square" & stat$network=="post")
+  square_index <- which(stat$iteration == square_round$iteration[row] & stat$table == "round" & stat$network == "post")
+  
+    #degree
+  degpre <- stat$degree[long_index][[1]]$`degree(post_igraph, mode = "all")`
+  degpos <- stat$degree[square_index][[1]]$`degree(post_igraph, mode = "all")`
+  t <- t.test(degpos,degpre)
+   square_round$degree[[row]] <- t$p.value
+   
+  #degree_distribution
+  degpre <- stat$degree_dist[long_index][[1]]$`degree_distribution(post_igraph)`
+  degpos <- stat$degree_dist[square_index][[1]]$`degree_distribution(post_igraph)`
+  t <- t.test(degpos,degpre)
+   square_round$degree_dis[[row]] <- t$p.value
+   
+  #transitivity
+  degpre <- stat$transitivity[long_index][[1]]$`transitivity(post_igraph, type = "local")`
+  degpos <- stat$transitivity[square_index][[1]]$`transitivity(post_igraph, type = "local")`
+  t <- t.test(degpos,degpre)
+   square_round$transitivity[[row]] <- t$p.value
+
+  #betweenness
+  degpre <- stat$between[long_index][[1]]$`betweenness(post_igraph)`
+  degpos <- stat$between[square_index][[1]]$`betweenness(post_igraph)`
+  t <- t.test(degpos,degpre)
+   square_round$between[[row]] <- t$p.value
+   
+  #eigen_centrality
+  degpre <- stat$eigen_cen[long_index][[1]]$`eigen_centrality(post_igraph)$vector`
+  degpos <- stat$eigen_cen[square_index][[1]]$`eigen_centrality(post_igraph)$vector`
+  t <- t.test(degpos,degpre)
+   square_round$eigen_cen[[row]] <- t$p.value
+
+}
+
+
+sum_square_round <- square_round %>% 
+  mutate(degree=as.numeric(round(degree,digits=3))) %>% 
+  mutate(transitivity=as.numeric(round(transitivity,digits=3))) %>% 
+  mutate(between=as.numeric(round(between,digits=3))) %>% 
+  mutate(eigen_cen=as.numeric(round(eigen_cen,digits=3))) %>% 
+  mutate(degree_dis=as.numeric(round(degree_dis,digits = 3)))
+
+
+# Function to count occurrences below 0.05
+count_below_threshold <- function(column) {
+  sum(column < 0.05)
+}
+
+# Apply the function to each column and create the table
+r <- sum_square_round[1:100,]
+r <- apply(r[, cols.num], 2, count_below_threshold)
+
+
+degree <- c(r[1][[1]])
+degree_dis <- c(r[5][[1]])
+transitivity <- c(r[2][[1]])
+between <- c(r[3][[1]])
+eigen_cen <- c(r[4][[1]])
+
+table <- c("square_round")
+
+results_square_round <- tibble(table = table,degree=degree,degree_distribution=degree_dis,transitivity=transitivity,eigen_centrality=eigen_cen,betweenness=between)
+
+
+
+```
+
+```{r plot degree_distribution}
+
+degree_disti <- tibble(degree_dist=as.numeric(), table=as.character(), iteration=as.numeric(),net=as.character())
+for (row in 1:nrow(stat)){
+  if ((row %% 2)==0){
+    temp <- tibble(degree_dist = stat$degree_dist[[row]]$`degree_distribution(post_igraph)`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net=stat$network[row])
+} else{
+    temp <- tibble(degree_dist = stat$degree_dist[[row]]$`degree_distribution(pre_igraph)`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net=stat$network[row]) 
+}
+
+degree_disti <- rbind(degree_disti,temp)
+}
+degree_disti <- degree_disti %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+dd <- ggplot(degree_disti, aes(x = degree_dist, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.6, bins = 50)+
+  ggtitle("Degree Distributions for table types")+
+  xlab("Degree distribution")+
+  ylab("Count")+
+  theme_minimal()
+```
+
+```{r plot degree}
+
+degree <- tibble(degree=as.numeric(), table=as.character(), iteration=as.numeric(),net=as.character())
+for (row in 1:nrow(stat)){
+  if ((row %% 2)==0){
+    temp <- tibble(degree = stat$degree[[row]]$`degree(post_igraph, mode = "all")`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net = stat$network[row])
+} else{
+    temp <- tibble(degree = stat$degree[[row]]$`degree(pre_igraph, mode = "all")`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net = stat$network[row])}
+
+degree <- rbind(degree,temp)
+}
+
+degree <- degree %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+d <- ggplot(degree, aes(x = degree, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Degree for table types")+
+  xlab("Degree")+
+  ylab("Count")+
+  theme_minimal()
+```
+
+```{r plot transitivity}
+
+trans <- tibble(trans=as.numeric(), table=as.character(), iteration=as.numeric(), net=as.character())
+for (row in 1:nrow(stat)){
+  if ((row %% 2)==0){
+    temp <- tibble(trans = stat$transitivity[[row]]$`transitivity(post_igraph, type = "local")`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net=stat$network[row])
+} else{
+    temp <- tibble(trans = stat$transitivity[[row]]$`transitivity(pre_igraph, type = "local")`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net=stat$network[row])
+}
+
+trans <- rbind(trans,temp)
+}
+
+trans <- trans %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+t <- ggplot(trans, aes(x = trans, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Transitivity for table types")+
+  xlab("Transitivity")+
+  ylab("Count")+
+  theme_minimal()
+```
+
+```{r plot between}
+
+betw <- tibble(betw=as.numeric(), table=as.character(), iteration=as.numeric(),net=as.character())
+for (row in 1:nrow(stat)){
+  if ((row %% 2)==0){
+    temp <- tibble(betw = stat$between[[row]]$`betweenness(post_igraph)`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net= stat$network[row])
+} else{
+    temp <- tibble(betw = stat$between[[row]]$`betweenness(pre_igraph)`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net= stat$network[row])
+}
+
+betw <- rbind(betw,temp)
+}
+
+betw <- betw %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+b <- ggplot(betw, aes(x = betw, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Betweenness for table types")+
+  xlab("Betweenness")+
+  ylab("Count")+
+  theme_minimal()
+```
+
+```{r plot eigen}
+
+eigen <- tibble(eigen=as.numeric(), table=as.character(), iteration=as.numeric(),net=as.character())
+for (row in 1:nrow(stat)){
+  if ((row %% 2)==0){
+    temp <- tibble(eigen = stat$eigen_cen[[row]]$`eigen_centrality(post_igraph)$vector`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net=stat$network[row])
+} else{
+    temp <- tibble(eigen = stat$eigen_cen[[row]]$`eigen_centrality(pre_igraph)$vector`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net=stat$network[row])
+}
+
+eigen <- rbind(eigen,temp)
+}
+
+eigen <- eigen %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+e <- ggplot(eigen, aes(x = eigen, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Eigen Centrality for table types")+
+  xlab("Eigent Centrality")+
+  ylab("Count")+
+  theme_minimal()
+```
+
+```{r arrange plots}
+gridExtra::grid.arrange(d,dd,t,b,e, top="Network Measures",ncol=3)
+```
+```{r plot pre/post}
+pre_post <-  merge(eigen, degree, by = c("table", "iteration","net"), all = TRUE)
+pre_post <-  merge(pre_post, degree_disti, by = c("table", "iteration","net"), all = TRUE)
+pre_post <-  merge(pre_post, trans, by = c("table", "iteration","net"), all = TRUE)
+pre_post <-  merge(pre_post, betw, by = c("table", "iteration","net"), all = TRUE)
+
+eigen <- eigen %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+e <- ggplot(eigen, aes(x = eigen, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Eigen Centrality for table types")+
+  xlab("Eigent Centrality")+
+  ylab("Count")+
+  theme_minimal()
+eigen <- eigen %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+e <- ggplot(eigen, aes(x = eigen, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Eigen Centrality for table types")+
+  xlab("Eigent Centrality")+
+  ylab("Count")+
+  theme_minimal()
+eigen <- eigen %>% 
+  mutate(table=as.factor(table))
+library(ggplot2,gridExtra)
+e <- ggplot(eigen, aes(x = eigen, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Eigen Centrality for table types")+
+  xlab("Eigent Centrality")+
+  ylab("Count")+
+  theme_minimal()
+
+
+```
+
+
+#bayes on post
+```{r eigen 0}
+library(tidyverse)
+pacman::p_load(rstanarm,rstan)
+
+eb <- eigen[which(eigen$net=="post"),]
+# Step 3: Split the data into training and testing sets
+set.seed(123)
+train_indices <- sample(nrow(eb), nrow(eb) * 0.7) # 70% for training
+train_data <- eb[train_indices, ]
+test_data <- eb[-train_indices, ]
+
+# Step 4: Build the regression model
+model1 <- stan_glm(eigen ~ table, data = train_data)
+summary(model1)
+
+#predict on test
+
+```
+
+```{r between check}
+# Step 3: Split the data into training and testing sets
+set.seed(123)
+bb <- betw[which(betw$net=="post"),]
+train_indices <- sample(nrow(bb), nrow(bb) * 0.7) # 70% for training
+train_data <- bb[train_indices, ]
+test_data <- bb[-train_indices, ]
+
+# Step 4: Build the regression model
+model2 <- stan_glm(betw ~ table, data = train_data)
+summary(model2)
+
+#predict on test
+```
+
+```{r transitivity }
+# Step 3: Split the data into training and testing sets
+set.seed(123)
+tb <- trans[which(trans$net=="post"),]
+train_indices <- sample(nrow(tb), nrow(tb) * 0.7) # 70% for training
+train_data <- tb[train_indices, ]
+test_data <- tb[-train_indices, ]
+
+# Step 4: Build the regression model
+model31 <- stan_glm(trans ~ table, data = train_data)
+summary(model3)
+summary(model31)
+
+#predict on test
+
+hist(model31$fitted.values)
+y_pointpred_drip <- predict(model31, newdata = test_data)
+
+y_pointpred_drip
+hist(y_pointpred_drip)
+model31$coefficients[1][[1]] + model31$coefficients[2][[1]]*test_data$trans
+
+# There is some rounding off error in the $coefficients. 
+# 
+# Here we only get a single estimate for how much drip a person with swag = 2 has. This estimate does not include our uncertainty about our coefficients nor the error.
+# 
+# #### Linear prediction
+# Linear prediction takes the uncertainty about our coefficients into account.
+
+y_linpred_drip <- posterior_linpred(model31, newdata = test_data)
+hist(y_linpred_drip, main = "Histogram of predicted value for Transitivity")
+preds <- tibble(pred=predict(model31, new_data = test_data, type = "response"))
+
+
+ggplot() +
+  geom_density(aes(x = pred), data=preds,adjust = 1L, fill = "#112446") +
+  theme_minimal()+
+  geom_density(aes(x=trans),data=train_data)
+```
+
+
+```{r degree }
+# Step 3: Split the data into training and testing sets
+set.seed(123)
+db <- degree[which(degree$net=="post"),]
+
+train_indices <- sample(nrow(db), nrow(db) * 0.7) # 70% for training
+train_data <- db[train_indices, ]
+test_data <- db[-train_indices, ]
+
+# Step 4: Build the regression model
+model4 <- stan_glm(degree ~ table, data = train_data)
+summary(model4)
+
+#predict on test
+
+```
+
+```{r degree distribution 0}
+# Step 3: Split the data into training and testing sets
+set.seed(123)
+ddb <- degree_disti[which(degree_disti$net=="post"),]
+
+train_indices <- sample(nrow(ddb), nrow(ddb) * 0.7) # 70% for training
+train_data <- ddb[train_indices, ]
+test_data <- ddb[-train_indices, ]
+
+# Step 4: Build the regression model
+model5 <- stan_glm(degree_dist ~ table, data = train_data)
+summary(model5)
+
+#predict on test
+
+```
+# moves
 ```{r}
-#Comparing only small and big events for 120 days
+moves <- tibble(moves=as.numeric(), table=as.character(), iteration=as.numeric())
+for (row in 1:nrow(df_collected)){
 
-network_cleaned_small120 <- network_cleaned_small_120
-network_cleaned_big120 <- network_cleaned_big_120
+    temp <- tibble(moves = stat$degree[[row]]$`degree(post_igraph, mode = "all")`,
+                   table = stat$table[row],
+                   iteration = stat$iteration[row],
+                   net = stat$network[row])
+}
 
-par(mfrow=c(1,2))
+degree <- rbind(degree,temp)
+}
 
-mean(degree(network_cleaned_small120))
-mean(degree(network_cleaned_big120))
-
-SE120_D <- degree(network_cleaned_small120)
-BE120_D <- degree(network_cleaned_big120) 
-
-t.test(BE120_D, SE120_D)
-
-mean(degree_distribution(network_cleaned_small120))
-mean(degree_distribution(network_cleaned_big120))
-
-DegreeDistr_SE120 <- degree_distribution(network_cleaned_small120)
-DegreeDistr_BE120 <- degree_distribution(network_cleaned_big120)
-
-t.test(DegreeDistr_BE120, DegreeDistr_SE120)
-
-# Degree
-
-rethinking::dens(degree_distribution(network_cleaned_small120))+
-  title("Small Event Degree Distribution 120")
-rethinking::dens(degree_distribution(network_cleaned_big120))+
-  title("Big Event Degree Distribution 120")
-
-
-
-# Average path length
-
-mean_distance(network_cleaned_small120, directed = TRUE, unconnected = TRUE)
-mean_distance(network_cleaned_big120, directed = TRUE, unconnected = TRUE)
-
-# Clustering coefficient
-
-transitivity(network_cleaned_small120)
-transitivity(network_cleaned_big120)
-
-Transitivity_SE120 <- transitivity(network_cleaned_small120, type = 'local')
-Transitivity_BE120 <-transitivity(network_cleaned_big120, type = 'local')
-
-t.test(Transitivity_BE120, Transitivity_SE120) 
-## Centrality
-
-mean(betweenness(network_cleaned_small120))
-rethinking::dens(betweenness(network_cleaned_small120))+
-  title("Small Event 120 Betweenness Centrality")
-mean(betweenness(network_cleaned_big120))
-rethinking::dens(betweenness(network_cleaned_big120))+
-  title("Big Event 120 Betweenness Centrality")
-
-Betweenness_SE120 <- betweenness(network_cleaned_small120)
-Betweenness_BE120 <- betweenness(network_cleaned_big120)
-
-t.test(Betweenness_BE120, Betweenness_SE120) 
-
-
-mean(eigen_centrality(network_cleaned_small120)$vector)
-mean(eigen_centrality(network_cleaned_big120)$vector)
-
-Eigen_SE120 <- eigen_centrality(network_cleaned_small120)$vector
-Eigen_BE120 <- eigen_centrality(network_cleaned_big120)$vector
-
-t.test(Eigen_BE120, Eigen_SE120)
 ```
 
 
-# 4 Community Detection
-
+#plot networks
 ```{r}
 #making the networks look the same for easier comparing
 E(network_cleaned)$arrow.mode <- 0
@@ -621,8 +839,8 @@ library(STRAND)
 outcome = list(inGoing) #matrix of post network
 exposte_list = list(exposre) #matrix of max friends weight
 dyad = list(friend = pre_network,
-#satisfaction_distance = satisfaction_dist,
-#outcome_distance = outcome_dist
+satisfaction_distance = satisfaction_dist,
+outcome_distance = outcome_dist
 )
 
 blocks = df %>%  select(sex, outcome, satisfaction) %>% mutate(sex=as.factor(sex)) %>% as.data.frame()
@@ -663,7 +881,7 @@ temp <- strand_df[[3]][[1]]
 IDs <- temp$ID
 
 # Create an empty matrix with IDxID dimensions
-exposure <- matrix(0, nrow = length(IDs), ncol = length(IDs), dimnames = list(IDs, IDs))
+exposure <- matrix(0, nrow = length(IDs), ncol = length(IDs), dimnames = list(first = IDs, second = IDs))
 
 # Fill the matrix with the value 50
 exposure[] <- 50
@@ -688,9 +906,11 @@ for (row in 1:nrow(strand_df)){
 }
 
 #binary outcome for pre and postnetwork
-strand_df[[5]][[1]][strand_df[[5]][[1]] > 0] <- 1
-strand_df[[4]][[1]][strand_df[[4]][[1]] > 0] <- 1
-
+post <- strand_df[[5]][[1]]
+post[post>0] <- 1
+ strand_df[[5]][[1]][strand_df[[5]][[1]] > 0] <- 1
+ strand_df[[4]][[1]][strand_df[[4]][[1]] > 0] <- 1
+# 
 
 #interest matrix
 
@@ -699,7 +919,7 @@ i = strand_df[[3]][[1]] %>% select(c("interest1","interest2","interest3"))
 interest_matrix <- as.matrix(i)  # Exclude the ID column
 
 # Create an empty matrix with IDxID dimensions
-overlap_matrix <- matrix(0, nrow = length(IDs), ncol = length(IDs), dimnames = list(IDs, IDs))
+overlap_matrix <- matrix(0, nrow = length(IDs), ncol = length(IDs), dimnames = list(first = IDs, second = IDs))
 
 # Compute the number of overlapping interests
 for (i in 1:length(IDs)) {
@@ -714,7 +934,10 @@ for (i in 1:length(IDs)) {
 
 ```{r}
 #make strand dataframe
-outcome = list(strand_df[[5]][[1]]) #postnetwork
+exposure[exposure>0] <- 1
+outcome = list(post,t(post)) #postnetwork
+pre <- strand_df[[4]][[1]]
+pre[pre>0] <- 1
 
 dyad = list(interests = overlap_matrix, 
             Friends = strand_df[[4]][[1]] #prenetwork
@@ -727,13 +950,13 @@ indiv = tibble(IE = individual$ie,
                     satisfaction = individual$satisfaction_baseline
                      )
 
-exposure_list = list(exposure)
+exposure_list = list(exposure,exposure)
 
 dat = make_strand_data(self_report = outcome, #why binary?
                        individual_covariates = indiv, 
                        dyadic_covariates = dyad,
                        exposure = exposure_list,
-                       outcome_mode = "poisson")
+                       outcome_mode = "binomial")
 
 
 fit = fit_latent_network_model(data=dat,
@@ -746,363 +969,8 @@ fit = fit_latent_network_model(data=dat,
                                 theta_regression = ~ 1,
                                 mode="mcmc",
                                 return_predicted_network = TRUE,
-                                stan_mcmc_parameters = list(seed = 1, chains = 1, parallel_chains = 1, refresh = 1, iter_warmup = 100,
+                                stan_mcmc_parameters = list(seed = 1, chains = 1, parallel_chains = 4, refresh = 1, iter_warmup = 100,
                                 iter_sampling = 100, max_treedepth = NULL, adapt_delta = NULL)
                                               )
-```
-
-
-
-## Mess
-
-```{r}
-par(mfrow=c(1,2))
-
-mean(degree(pre_igraph))
-mean(degree(post_igraph))
-sd(degree(pre_igraph))
-
-preD <- degree(pre_igraph)
-postD <- degree(post_igraph) 
-
-t.test(preD, postD)
-
-mean(degree_distribution(pre_igraph))
-mean(degree_distribution(post_igraph))
-
-DegreeDistr_ABM <- degree_distribution(pre_igraph)
-DegreeDistr_2019 <- degree_distribution(post_igraph)
-
-t.test(DegreeDistr_ABM, DegreeDistr_2019)
-
-# Degree
-
-rethinking::dens(degree_distribution(pre_igraph))+
-  title("ABM Degree Distribution")
-rethinking::dens(degree_distribution(post_igraph))+
-  title("2019 Data Degree Distribution")
-
-
-
-# Average path length
-
-mean_distance(pre_igraph, directed = TRUE, unconnected = TRUE)
-mean_distance(post_igraph, directed = TRUE, unconnected = TRUE)
-
-# Clustering coefficient
-
-transitivity(pre_igraph)
-transitivity(post_igraph)
-
-Transitivity_ABM <- transitivity(pre_igraph, type = 'local')
-Transitivity_2019 <-transitivity(post_igraph, type = 'local')
-
-t.test(Transitivity_ABM, Transitivity_2019) 
-## Centrality
-
-mean(betweenness(pre_igraph))
-rethinking::dens(betweenness(pre_igraph))+
-  title("ABM Betweenness Centrality")
-mean(betweenness(post_igraph))
-rethinking::dens(betweenness(post_igraph))+
-  title("2019 Data Betweenness Centrality")
-
-Betweenness_ABM <- betweenness(pre_igraph)
-Betweenness_2019 <- betweenness(post_igraph)
-
-t.test(Betweenness_ABM, Betweenness_2019) 
-
-
-mean(eigen_centrality(pre_igraph)$vector)
-mean(eigen_centrality(post_igraph)$vector)
-
-Eigen_ABM <- eigen_centrality(pre_igraph)$vector
-Betweenness_2019 <- betweenness(post_igraph)
-
-t.test(Eigen_ABM, Eigen_2019)
-
-
-```
-
-
-
-# 4 Community Detection
-
-```{r}
-#making the networks look the same for easier comparing
-E(network_cleaned)$arrow.mode <- 0
-V(network_cleaned)$label <- ""
-
-# Community detection
-wc1 <- cluster_walktrap(pre_igraph)
-# wc1 <- cluster_infomap(as.undirected(network_cleaned))
-modularity(wc1)
-membership(wc1)
-
-wc2 <- cluster_walktrap(post_igraph)
-modularity(wc2)
-membership(wc2)
-
-
-par(mfrow=c(1,2))
-
-plot(wc1, pre_igraph, layout = layout_nicely)
-plot(wc2, post_igraph)
-
-
-# Community detection (by optimizing modularity over partitions):
-clp <- cluster_louvain(as.undirected(network_cleaned))
-plot(clp, network_cleaned, layout = layout_nicely, edge.arrow.size = 0.2)
-
-
-clp <- cluster_louvain(as.undirected(post_igraph))
-plot(clp, post_igraph, layout = layout_nicely, edge.arrow.size = 0.2)
-
-
-#clop <- cluster_optimal(post_igraph)
-#plot(clop, post_igraph)
-
-#par(mfrow=c(1,1))
-```
-
-
-
-
-
-```{r test hosts}
-#check it out
-# head(hosts)
-#seems good
-
-#could be fun to make a radar chart of the hosts
-#https://www.datanovia.com/en/blog/beautiful-radar-chart-in-r-using-fmsb-and-ggplot-packages/
-#opar <- par() 
-# Define settings for plotting in a 3x4 grid, with appropriate margins:
-#par(mar = rep(0.8,3))
-#par(mfrow = c(3,3))
-# Produce a radar-chart for each student
-#for (i in 1:nrow(hosts)) {
- # radarchart(
-  #  hosts[c(2:7, i), ],#hosts[ i,c(2:7)]
-   # pfcol = c("#99999980",NA),
-    #pcol= c(NA,2), plty = 1, plwd = 2,
-#    title = row.names(hosts)[i]
- # )
-#}
-# Restore the standard par() settings
-#par <- par(opar) 
-```
-
-```{r test interest overlap}
-# par(mfrow=c(1,3))
-# plot(density(hosts$interest1))
-# plot(density(hosts$interest2))
-# plot(density(hosts$interest3))
-# #library(plyr)
-# dplyr::count_(hosts, vars = c('interest1','interest2','interest3'))
-# aggregate(ID ~ ., hosts, FUN = length)
-# 
-# dupes <- apply(hosts[,2:4], 1, function(x) any(duplicated(x)))
-# dupes <- hosts[dupes, ]
-# dup <- dupes[1,]
-# stringr::str_count(dupes) #18 true #four characters, =28 procent had an overlap in at least two coloumns
-```
-
-```{r test interest overlap}
-# #test if people have overlap in interests within themselves
-# dupes <- apply(guests[,5:7], 1, function(x) any(duplicated(x)))
-# stringr::str_count(dupes) #16 true #four characters, =25 procent had an overlap in at least two coloumns
-
-```
-
-```{r plot packages}
-#Plotting Friendship network
-pacman::p_load(tidyverse,
-               here,
-               network,
-               igraph,
-               ggraph,
-               tidygraph,
-               patchwork,
-               bootnet)
-
-```
-
-```{r plot prenetwork}
-pacman::p_load(tidyverse,
-               here,
-               network,
-               igraph,
-               ggraph,
-               tidygraph,
-               patchwork)
-nodes <- party$ID
-
-pre_igraph <-
-  graph_from_data_frame(d = df_collected$pre_network[[1]],
-                        vertices = nodes,
-                        directed = TRUE)
-
-
-pre_igraph <- simplify(pre_igraph, 
-                                  remove.multiple = TRUE, 
-                                  remove.loops = TRUE,
-                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
-
-
-
-E(pre_igraph)$arrow.mode <- 0
-
-
-
-V(pre_igraph)$label <- "" 
-
-V(pre_igraph)$frame.color <- "white"
-V(pre_igraph)$color <- "orange"
-E(pre_igraph)$width <- edge_attr(pre_igraph)$weight/16 #this one adjusts the size of arrows 
-#E(pre_igraph)$arrow.size <- 0.01
-plot(pre_igraph,
-     layout=layout_nicely,
-     #vertex.label= V(pr,
-     edge.arrow.size=0.01#,
-     #vertex.label.color = "black",
-     #vertex.size=node.size
-     )
-
-#ask Emma how to make their cool network plot
-```
-
-```{r plot network at round tables}
-round <- expand.grid(from=round_tables$new_seat,to=round_tables$new_seat)
-round$weight <- 0
-round <- filter(round, from != to)
-#Add weight to all the friendships we just created
-for (i in 1:nrow(round_tables)){
-  current_id <- round_tables$new_seat[i]
-  temp <- round %>% filter(from==current_id)
-   for (k in strsplit(round_tables$indices[i], ", ")[[1]]){
-     temp2 <- temp %>% filter(to==k)
-      temp2$weight <- temp2$weight + 1
-       temp <- temp %>% filter(to!=k)
-      temp <- rbind(temp2, temp)
-  }
-    round <- round %>% filter(from!=current_id)
-    round <- rbind(round, temp)
-}
-
-# for visualisation
-round <- round[!(round$weight==0),]
-round_graph <-
-  graph_from_data_frame(d = round,
-                        vertices = round_tables$new_seat,
-                        directed = TRUE)
-
-plot(round_graph,
-     layout = layout_nicely, # Explore layouts!
-     edge.arrow.size = 0.2) 
-```
-
-```{r plot network at square tables}
-square <- expand.grid(from=square_tables$new_seat,to=square_tables$new_seat)
-square$weight <- 0
-square <- filter(square, from != to)
-#Add weight to all the friendships we just created
-for (i in 1:nrow(square_tables)){
-  current_id <- square_tables$new_seat[i]
-  temp <- square %>% filter(from==current_id)
-   for (k in strsplit(square_tables$indices[i], ", ")[[1]]){
-     temp2 <- temp %>% filter(to==k)
-      temp2$weight <- temp2$weight + 1
-       temp <- temp %>% filter(to!=k)
-      temp <- rbind(temp2, temp)
-  }
-    square <- square %>% filter(from!=current_id)
-    square <- rbind(square, temp)
-}
-
-# for visualisation
-square <- square[!(square$weight==0),]
-square_graph <-
-  graph_from_data_frame(d = square,
-                        vertices = square_tables$new_seat,
-                        directed = TRUE)
-
-plot(square_graph,
-     layout = layout_nicely, # Explore layouts!
-     edge.arrow.size = 0.2) 
-```
-
-```{r plot network at long table}
-long <- expand.grid(from=long_table$seat,to=long_table$seat)
-long$weight <- 0
-long <- filter(long, from != to)
-#Add weight to all the friendships we just created
-for (i in 1:nrow(long_table)){
-  current_id <- long_table$seat[i]
-  temp <- long %>% filter(from==current_id)
-   for (k in strsplit(long_table$indices[i], ", ")[[1]]){
-     temp2 <- temp %>% filter(to==k)
-      temp2$weight <- temp2$weight + 1
-       temp <- temp %>% filter(to!=k)
-      temp <- rbind(temp2, temp)
-  }
-    long <- long %>% filter(from!=current_id)
-    long <- rbind(long, temp)
-}
-
-# for visualisation
-long <- long[!(long$weight==0),]
-long_graph <-
-  graph_from_data_frame(d = long,
-                        vertices = long_table$seat,
-                        directed = TRUE)
-
-plot(long_graph,
-     layout = layout_nicely, # Explore layouts!
-     edge.arrow.size = 0.2) 
-
-```
-
-```{r plot post_network}
-pacman::p_load(tidyverse,
-               here,
-               network,
-               igraph,
-               ggraph,
-               tidygraph,
-               patchwork)
-nodes <- party$ID
-
-post_igraph <-
-  graph_from_data_frame(d =df_collected$post_network[[1]],
-                        vertices = nodes,
-                        directed = TRUE)
-
-
-post_igraph <- simplify(post_igraph, 
-                                  remove.multiple = TRUE, 
-                                  remove.loops = TRUE,
-                                  edge.attr.comb = igraph_opt("edge.attr.comb"))
-
-
-
-E(post_igraph)$arrow.mode <- 0
-
-
-
-V(post_igraph)$label <- "" 
-
-V(post_igraph)$frame.color <- "white"
-V(post_igraph)$color <- "orange"
-E(post_igraph)$width <- edge_attr(post_igraph)$weight/16 #this one adjusts the size of arrows 
-#E(post_igraph)$arrow.size <- 0.01
-plot(post_igraph,
-     layout=layout_nicely,
-     #vertex.label= V(pr,
-     edge.arrow.size=0.01#,
-     #vertex.label.color = "black",
-     #vertex.size=node.size
-     )
-
-#ask Emma how to make their cool network plot
-``` 
+summarize_strand_results(fit)
+``
