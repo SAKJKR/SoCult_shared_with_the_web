@@ -657,13 +657,163 @@ e <- ggplot(eigen, aes(x = eigen, fill = table)) +                       # Draw 
 
 ```
 
+#Bayes on pre/post
+```{r}
+library(tidyverse)
+pacman::p_load(rstanarm,rstan)
+```
+
+
+```{r}
+options(mc.cores = parallel::detectCores())
+
+# Step 4: Build the regression model
+e <- rstanarm::stan_glm(eigen ~ table *net, data = eigen)
+summary(e)
+
+b <- rstanarm::stan_glm(betw ~ table *net, data = betw)
+summary(b)
+
+t <- stan_glm(trans ~ table * net, data = trans)
+summary(t)
+
+d <- stan_glm(degree ~ table*net, data = degree)
+summary(d)
+
+dd <- stan_glm(degree_dist ~ table*net, data = degree_disti)
+summary(dd)
+
+
+```
+
+## plot
+```{r}
+colours = c("Pre" = "grey", "Post" = "#E69F00")
+```
+
+
+```{r plot degree_distribution}
+degree_disti$table_pre_post <- paste(degree_disti$table, degree_disti$net, sep=':') 
+degree_disti <- degree_disti %>% 
+  mutate(net=as.factor(net)) %>% 
+  mutate(table_pre_post=as.factor(table_pre_post))
+degree_disti <- degree_disti %>% 
+  mutate(net=str_to_title(net)) %>% 
+  mutate(table=str_to_title(table))
+library(ggplot2,gridExtra)
+ ggplot() +        
+    geom_histogram(aes(x = degree_dist, fill = net), data = degree_disti,
+                 position = "identity", alpha = 0.6, bins = 50)+
+
+  ggtitle("Degree Distributions")+
+  xlab("Degree distribution")+
+    facet_wrap(~table)+
+  ylab("Count")+
+     scale_fill_manual(values = colours)+
+  theme_minimal()+theme(legend.position = "none")+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+   theme(text = element_text(size = 20))
+```
+
+```{r plot degree}
+degree$table_pre_post <- paste(degree$table, degree$net, sep=':') 
+degree <- degree %>% 
+  mutate(Net=as.factor(str_to_title(net))) %>% 
+  mutate(table_pre_post=as.factor(table_pre_post)) %>% 
+  mutate(table=str_to_title(table))
+  
+ggplot(degree, aes(x = degree, fill = Net)) +     
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Degree")+
+    facet_wrap(~table)+
+  xlab("Degree")+
+  ylab("Count")+
+  theme_minimal()+
+       scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+    theme(legend.position = "none")+
+     theme(text = element_text(size = 20))
+
+```
+
+```{r plot transitivity}
+trans$table_pre_post <- paste(trans$table, trans$net, sep=':') 
+trans <- trans %>% 
+  mutate(Net=as.factor(str_to_title(net))) %>% 
+  mutate(table_pre_post=as.factor(table_pre_post)) %>% 
+  mutate(table=str_to_title(table))
+
+
+ ggplot(trans, aes(x = trans, fill = Net)) +                
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Transitivity")+
+  xlab("Transitivity")+
+    facet_wrap(~table)+
+  ylab("Count")+
+  theme_minimal()+
+          scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+    theme(legend.position = "none")+
+     theme(text = element_text(size = 20))
+
+```
+
+```{r plot between}
+betw$table_pre_post <- paste(betw$table, betw$net, sep=':') 
+betw <- betw %>% 
+  mutate(Net=as.factor(str_to_title(net))) %>% 
+  mutate(table_pre_post=as.factor(table_pre_post)) %>% 
+  mutate(table=str_to_title(table))
+
+ggplot(betw, aes(x = betw, fill = Net)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Betweenness")+
+    facet_wrap(~table)+
+  xlab("Betweenness")+
+  ylab("Count")+
+  theme_minimal()+
+       scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+    theme(legend.position = "none")+
+  theme(text=element_text(size=20))
+
+```
+
+```{r plot eigen}
+eigen$table_pre_post <- paste(eigen$table, eigen$net, sep=':') 
+eigen <- eigen %>% 
+  mutate(Net=as.factor(str_to_title(net))) %>% 
+  mutate(table_pre_post=as.factor(table_pre_post)) %>% 
+  mutate(table=str_to_title(table))
+
+
+
+ggplot(eigen, aes(x = eigen, fill = Net)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Eigen Centrality")+
+  facet_wrap(~table)+
+  xlab("Eigent Centrality")+
+  ylab("Count")+
+  theme_minimal()+
+       scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+  theme(text=element_text(size=20))+
+  theme(legend.position = "none")
+```
+
+
 
 #bayes on post
-```{r eigen 0}
+```{r}
 library(tidyverse)
 pacman::p_load(rstanarm,rstan)
 
-eb <- eigen[which(eigen$net=="post"),]
+eb <- eigen[which(eigen$Net=="Post"),]
 # Step 3: Split the data into training and testing sets
 set.seed(123)
 train_indices <- sample(nrow(eb), nrow(eb) * 0.7) # 70% for training
@@ -681,7 +831,7 @@ summary(model1)
 ```{r between check}
 # Step 3: Split the data into training and testing sets
 set.seed(123)
-bb <- betw[which(betw$net=="post"),]
+bb <- betw[which(betw$Net=="Post"),]
 train_indices <- sample(nrow(bb), nrow(bb) * 0.7) # 70% for training
 train_data <- bb[train_indices, ]
 test_data <- bb[-train_indices, ]
@@ -696,7 +846,7 @@ summary(model2)
 ```{r transitivity }
 # Step 3: Split the data into training and testing sets
 set.seed(123)
-tb <- trans[which(trans$net=="post"),]
+tb <- trans[which(trans$Net=="Post"),]
 train_indices <- sample(nrow(tb), nrow(tb) * 0.7) # 70% for training
 train_data <- tb[train_indices, ]
 test_data <- tb[-train_indices, ]
@@ -715,29 +865,13 @@ y_pointpred_drip
 hist(y_pointpred_drip)
 model31$coefficients[1][[1]] + model31$coefficients[2][[1]]*test_data$trans
 
-# There is some rounding off error in the $coefficients. 
-# 
-# Here we only get a single estimate for how much drip a person with swag = 2 has. This estimate does not include our uncertainty about our coefficients nor the error.
-# 
-# #### Linear prediction
-# Linear prediction takes the uncertainty about our coefficients into account.
-
-y_linpred_drip <- posterior_linpred(model31, newdata = test_data)
-hist(y_linpred_drip, main = "Histogram of predicted value for Transitivity")
-preds <- tibble(pred=predict(model31, new_data = test_data, type = "response"))
-
-
-ggplot() +
-  geom_density(aes(x = pred), data=preds,adjust = 1L, fill = "#112446") +
-  theme_minimal()+
-  geom_density(aes(x=trans),data=train_data)
 ```
 
 
 ```{r degree }
 # Step 3: Split the data into training and testing sets
 set.seed(123)
-db <- degree[which(degree$net=="post"),]
+db <- degree[which(degree$Net=="Post"),]
 
 train_indices <- sample(nrow(db), nrow(db) * 0.7) # 70% for training
 train_data <- db[train_indices, ]
@@ -754,7 +888,7 @@ summary(model4)
 ```{r degree distribution 0}
 # Step 3: Split the data into training and testing sets
 set.seed(123)
-ddb <- degree_disti[which(degree_disti$net=="post"),]
+ddb <- degree_disti[which(degree_disti$net=="Post"),]
 
 train_indices <- sample(nrow(ddb), nrow(ddb) * 0.7) # 70% for training
 train_data <- ddb[train_indices, ]
@@ -767,20 +901,195 @@ summary(model5)
 #predict on test
 
 ```
+
+## plot
+```{r}
+colours = c("Long" = "lightblue", "Round" = "#E69F00","Square" = "lightgreen")
+```
+
+
+```{r plot degree_distribution}
+ddbp <- ggplot() +        
+    geom_histogram(aes(x = degree_dist, fill = table), data = ddb,
+                 position = "identity", alpha = 0.6, bins = 50)+
+
+  ggtitle("Degree Distributions")+
+  xlab("Degree distribution")+
+  ylab("Count")+
+     scale_fill_manual(values = colours)+
+  theme_minimal()+theme(legend.position = "none")+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))
+```
+
+```{r plot degree}
+dbp <- ggplot(db, aes(x = degree, fill = table)) +     
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Degree")+
+  xlab("Degree")+
+  ylab("Count")+
+  theme_minimal()+
+       scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+    theme(legend.position = "none")
+```
+
+```{r plot transitivity}
+tp <-  ggplot(tb, aes(x = trans, fill = table)) +                
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Transitivity")+
+  xlab("Transitivity")+
+  ylab("Count")+
+  theme_minimal()+
+          scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+    theme(legend.position = "none")
+```
+
+```{r plot between}
+bp <- ggplot(bb, aes(x = betw, fill = table)) +           
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Betweenness")+
+  xlab("Betweenness")+
+  ylab("Count")+
+  theme_minimal()+
+       scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+    theme(legend.position = "none")
+```
+
+```{r plot eigen}
+
+ec <- ggplot(eb, aes(x = eigen, fill = table)) +                       # Draw overlaying histogram
+  geom_histogram(position = "identity", alpha = 0.8, bins = 50)+
+  ggtitle("Eigen Centrality")+
+  xlab("Eigent Centrality")+
+  ylab("Count")+
+  theme_minimal()+
+       scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+  theme(legend.position = "none")
+```
+
+```{r}
+gridExtra::grid.arrange(ddbp,bp, ec, dbp,tp,ncol=2)
+```
+
+
+
 # moves
 ```{r}
+#t.test
+l_s <-  tibble(expand.grid(iteration = seq(1,100),
+                           table = "long_square",
+                           moves = NA
+                           )
+                )
+
+
+for (row in 1:nrow(l_s)){
+  long_index <- which(df_collected$iteration == l_s$iteration[row] & df_collected$table_type == "long")
+  square_index <- which(df_collected$iteration == l_s$iteration[row] & df_collected$table_type == "square")
+  
+    #moves
+  degpre <- df_collected$party[long_index][[1]]$moves
+  degpos <- df_collected$party[square_index][[1]]$moves
+  t <- t.test(degpos,degpre)
+   l_s$moves[[row]] <- t$p.value
+}
+
+m <- apply(l_s[, "moves"], 2, count_below_threshold)
+mov <- c(m[1][[1]])
+
+
+l_r <-  tibble(expand.grid(iteration = seq(1,100),
+                           table = "long_square",
+                           moves = NA
+                           )
+                )
+
+
+for (row in 1:nrow(l_r)){
+  long_index <- which(df_collected$iteration == l_s$iteration[row] & df_collected$table_type == "long")
+  square_index <- which(df_collected$iteration == l_s$iteration[row] & df_collected$table_type == "round")
+  
+    #moves
+  degpre <- df_collected$party[long_index][[1]]$moves
+  degpos <- df_collected$party[square_index][[1]]$moves
+  t <- t.test(degpos,degpre)
+   l_r$moves[[row]] <- t$p.value
+}
+
+# Apply the function to each column and create the table
+mr <- apply(l_r[, "moves"], 2, count_below_threshold)
+movr <- c(mr[1][[1]])
+
+
+s_r <-  tibble(expand.grid(iteration = seq(1,100),
+                           table = "square_round",
+                           moves = NA
+                           )
+                )
+
+for (row in 1:nrow(s_r)){
+  long_index <- which(df_collected$iteration == l_s$iteration[row] & df_collected$table_type == "square")
+  square_index <- which(df_collected$iteration == l_s$iteration[row] & df_collected$table_type == "round")
+  
+    #moves
+  degpre <- df_collected$party[long_index][[1]]$moves
+  degpos <- df_collected$party[square_index][[1]]$moves
+  t <- t.test(degpos,degpre)
+   s_r$moves[[row]] <- t$p.value
+}
+
+mrs <- apply(s_r[, "moves"], 2, count_below_threshold)
+movsr <- c(mrs[1][[1]])
+
+#collected
+tabl <- c("long_square","long_round","square_round")
+sig <- c(mov,movr,movsr)
+results_move <- tibble(Tables = tabl, `significant difference in moves`=sig)
+results_move
+
+
+#bayes
 moves <- tibble(moves=as.numeric(), table=as.character(), iteration=as.numeric())
 for (row in 1:nrow(df_collected)){
-
-    temp <- tibble(moves = stat$degree[[row]]$`degree(post_igraph, mode = "all")`,
-                   table = stat$table[row],
-                   iteration = stat$iteration[row],
-                   net = stat$network[row])
+  temp <- tibble(moves = df_collected$party[row][[1]]$moves,
+                   table = df_collected$table_type[row],
+                   iteration = df_collected$iteration[row]
+                 )
+  moves <- rbind(moves,temp)
 }
 
-degree <- rbind(degree,temp)
-}
+set.seed(123)
 
+train_indices <- sample(nrow(moves), nrow(moves) * 0.7) # 70% for training
+train_data <- moves[train_indices, ]
+test_data <- moves[-train_indices, ]
+
+# Step 4: Build the regression model
+model5 <- stan_glm(moves ~ table, data = train_data)
+summary(model5)
+
+#plot
+moves <- moves %>% 
+  mutate(Table=as.factor(str_to_title(table)))
+move <- ggplot(moves, aes(x = moves, fill = Table)) +                       # Draw overlaying histogram
+  geom_density(position = "identity", alpha = 0.6)+
+   ggtitle("Moves")+
+   xlab("Count of moves")+
+   ylab("Density")+
+  theme_minimal()+
+       scale_fill_manual(values = colours)+
+    theme(plot.title = element_text(hjust = 0.5))+
+   theme(axis.text.x = element_text(hjust = 1, vjust = 0.5))+
+  theme(text=element_text(size=20))
+move
 ```
 
 

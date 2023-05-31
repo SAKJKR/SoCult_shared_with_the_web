@@ -681,6 +681,7 @@ round_graph <-
   graph_from_data_frame(d = round,
                         vertices = round_tables$new_seat,
                         directed = TRUE)
+V(round_graph)$label <- "" 
 
 plot(round_graph,
      layout = layout_nicely, # Explore layouts!
@@ -711,9 +712,11 @@ square_graph <-
   graph_from_data_frame(d = square,
                         vertices = square_tables$new_seat,
                         directed = TRUE)
+V(square_graph)$label <- "" 
+E(square_graph)$width <- edge_attr(square_graph)$weight
 
 plot(square_graph,
-     layout = layout_nicely, # Explore layouts!
+     layout = layout_on_grid, # Explore layouts!
      edge.arrow.size = 0.2) 
 ```
 
@@ -741,9 +744,11 @@ long_graph <-
   graph_from_data_frame(d = long,
                         vertices = long_table$seat,
                         directed = TRUE)
+V(long_graph)$label <- "" 
+
 
 plot(long_graph,
-     layout = layout_nicely, # Explore layouts!
+     layout = layout_in_circle, # Explore layouts!
      edge.arrow.size = 0.2) 
 
 ```
